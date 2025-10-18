@@ -627,6 +627,77 @@ CombatTab:CreateToggle({
     end,
 })
 
+-- Double Damage Configuration
+local doubleDamageConfig = {
+    enabled = false,
+    multiplier = 2.0
+}
+
+-- Double Damage Functions
+local function setupDoubleDamage()
+    -- Simple damage multiplier using metatable
+    local originalFireServer = game.ReplicatedStorage and game.ReplicatedStorage.FindFirstChild and game.ReplicatedStorage:FindFirstChild("RemoteEvent")
+    
+    -- Hook into common damage events
+    local function hookDamageEvent(event)
+        if event and event:IsA("RemoteEvent") then
+            local originalFire = event.FireServer
+            event.FireServer = function(self, ...)
+                local args = {...}
+                
+                if doubleDamageConfig.enabled then
+                    -- Check for damage values and multiply them
+                    for i, arg in pairs(args) do
+                        if type(arg) == "number" and arg > 0 and arg < 1000 then
+                            args[i] = arg * doubleDamageConfig.multiplier
+                        elseif type(arg) == "table" then
+                            -- Check for damage keys in tables
+                            for key, value in pairs(arg) do
+                                if (key:lower():find("damage") or key:lower():find("amount")) and type(value) == "number" and value > 0 and value < 1000 then
+                                    arg[key] = value * doubleDamageConfig.multiplier
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                return originalFire(self, unpack(args))
+            end
+        end
+    end
+    
+    -- Hook existing events
+    if game.ReplicatedStorage then
+        for _, obj in pairs(game.ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("RemoteEvent") and (obj.Name:lower():find("damage") or obj.Name:lower():find("hit") or obj.Name:lower():find("attack")) then
+                hookDamageEvent(obj)
+            end
+        end
+    end
+    
+    -- Hook workspace events
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("RemoteEvent") and (obj.Name:lower():find("damage") or obj.Name:lower():find("hit") or obj.Name:lower():find("attack")) then
+            hookDamageEvent(obj)
+        end
+    end
+end
+
+-- Setup double damage
+pcall(setupDoubleDamage)
+
+-- Double Damage UI Controls
+CombatTab:CreateSlider({
+    Name = "Damage Multiplier",
+    Range = {1, 10},
+    Increment = 0.1,
+    Suffix = "x",
+    CurrentValue = 2.0,
+    Callback = function(Value)
+        doubleDamageConfig.multiplier = Value
+    end,
+})
+
 -- Misc Tab
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 MiscTab:CreateParagraph({Title = "Teleport Locations", Content = "Teleport to important places in StreetLife"})
@@ -687,6 +758,15 @@ PlayerTab:CreateToggle({
         else
             stopAimbot()
         end
+    end,
+})
+
+-- Double Damage Toggle in Player Tab
+PlayerTab:CreateToggle({
+    Name = "Double Damage",
+    CurrentValue = false,
+    Callback = function(Value)
+        doubleDamageConfig.enabled = Value
     end,
 })
 
