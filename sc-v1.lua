@@ -360,40 +360,40 @@ end
 -- Load Rayfield
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-local Window = Rayfield:CreateWindow({
-   Name = "Streetlife",
-   Icon = 0,
-   LoadingTitle = "LAJ Hub",
-   LoadingSubtitle = "by libyaarmy",
-   Theme = "Default",
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false,
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = nil,
-      FileName = "LAJ Hub"
-   },
-   Discord = {
-      Enabled = true,
-      Invite = "3d2UT7BhHE",
-      RememberJoins = true
-   },
-   KeySystem = true,
-   KeySettings = {
-      Title = "LAJ Hub | Key System",
-      Subtitle = "Join our Discord to get a key",
-      Note = "Click below to copy the key link",
-      FileName = "LAJ_Hub_Key",
-      SaveKey = true,
-      GrabKeyFromSite = false,
-      GetKey = function()
-         copyLink()
-      end,
-      CheckKey = function(key)
-         return verifyKey(key)
-      end
-   }
-})
+-- local Window = Rayfield:CreateWindow({
+--    Name = "Streetlife",
+--    Icon = 0,
+--    LoadingTitle = "LAJ Hub",
+--    LoadingSubtitle = "by libyaarmy",
+--    Theme = "Default",
+--    DisableRayfieldPrompts = false,
+--    DisableBuildWarnings = false,
+--    ConfigurationSaving = {
+--       Enabled = true,
+--       FolderName = nil,
+--       FileName = "LAJ Hub"
+--    },
+--    Discord = {
+--       Enabled = true,
+--       Invite = "3d2UT7BhHE",
+--       RememberJoins = true
+--    },
+--    KeySystem = true,
+--    KeySettings = {
+--       Title = "LAJ Hub | Key System",
+--       Subtitle = "Join our Discord to get a key",
+--       Note = "Click below to copy the key link",
+--       FileName = "LAJ_Hub_Key",
+--       SaveKey = true,
+--       GrabKeyFromSite = false,
+--       GetKey = function()
+--          copyLink()
+--       end,
+--       CheckKey = function(key)
+--          return verifyKey(key)
+--       end
+--    }
+-- })
 
 -- Combat Tab
 local CombatTab = Window:CreateTab("Combat", 4483362458)
