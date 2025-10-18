@@ -438,6 +438,195 @@ local function SafeTeleport(position)
    tween:Play()
 end
 
+-- Aimbot Configuration
+local aimbotConfig = {
+    enabled = false,
+    smoothing = 0.1,
+    fov = 200,
+    targetPart = "Head", -- Head, Torso, HumanoidRootPart
+    teamCheck = true,
+    visibleCheck = true,
+    maxDistance = 1000
+}
+
+-- Aimbot Variables
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- Aimbot Functions
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local closestDistance = aimbotConfig.fov
+    local cameraPosition = Camera.CFrame.Position
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            -- Team check
+            if aimbotConfig.teamCheck and player.Team == LocalPlayer.Team then
+                continue
+            end
+            
+            local character = player.Character
+            local targetPart = character:FindFirstChild(aimbotConfig.targetPart)
+            
+            if targetPart then
+                local distance = (targetPart.Position - cameraPosition).Magnitude
+                
+                -- Distance check
+                if distance <= aimbotConfig.maxDistance then
+                    -- Visibility check
+                    if aimbotConfig.visibleCheck then
+                        local raycastParams = RaycastParams.new()
+                        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+                        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+                        
+                        local raycastResult = workspace:Raycast(cameraPosition, (targetPart.Position - cameraPosition).Unit * distance, raycastParams)
+                        
+                        if raycastResult and raycastResult.Instance:IsDescendantOf(character) then
+                            -- Calculate FOV
+                            local screenPosition, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                            if onScreen then
+                                local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                                local distanceFromCenter = (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude
+                                
+                                if distanceFromCenter < closestDistance then
+                                    closestDistance = distanceFromCenter
+                                    closestPlayer = player
+                                end
+                            end
+                        end
+                    else
+                        -- No visibility check
+                        local screenPosition, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                        if onScreen then
+                            local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                            local distanceFromCenter = (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude
+                            
+                            if distanceFromCenter < closestDistance then
+                                closestDistance = distanceFromCenter
+                                closestPlayer = player
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+local function aimAtTarget(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then return end
+    
+    local targetPart = targetPlayer.Character:FindFirstChild(aimbotConfig.targetPart)
+    if not targetPart then return end
+    
+    local cameraPosition = Camera.CFrame.Position
+    local targetPosition = targetPart.Position
+    
+    -- Calculate the direction to the target
+    local direction = (targetPosition - cameraPosition).Unit
+    
+    -- Apply smoothing
+    local currentLookDirection = Camera.CFrame.LookVector
+    local smoothedDirection = currentLookDirection:Lerp(direction, aimbotConfig.smoothing)
+    
+    -- Create new CFrame
+    local newCFrame = CFrame.lookAt(cameraPosition, cameraPosition + smoothedDirection)
+    
+    -- Apply the new camera rotation
+    Camera.CFrame = newCFrame
+end
+
+-- Aimbot Main Loop
+local aimbotConnection
+local function startAimbot()
+    if aimbotConnection then
+        aimbotConnection:Disconnect()
+    end
+    
+    aimbotConnection = RunService.Heartbeat:Connect(function()
+        if aimbotConfig.enabled then
+            local targetPlayer = getClosestPlayer()
+            if targetPlayer then
+                aimAtTarget(targetPlayer)
+            end
+        end
+    end)
+end
+
+local function stopAimbot()
+    if aimbotConnection then
+        aimbotConnection:Disconnect()
+        aimbotConnection = nil
+    end
+end
+
+-- Aimbot UI Controls
+
+CombatTab:CreateSlider({
+    Name = "Aimbot Smoothing",
+    Range = {0.01, 1},
+    Increment = 0.01,
+    Suffix = "Smooth",
+    CurrentValue = 0.1,
+    Callback = function(Value)
+        aimbotConfig.smoothing = Value
+    end,
+})
+
+CombatTab:CreateSlider({
+    Name = "Aimbot FOV",
+    Range = {50, 500},
+    Increment = 10,
+    Suffix = "FOV",
+    CurrentValue = 200,
+    Callback = function(Value)
+        aimbotConfig.fov = Value
+    end,
+})
+
+CombatTab:CreateSlider({
+    Name = "Max Distance",
+    Range = {100, 2000},
+    Increment = 50,
+    Suffix = "Studs",
+    CurrentValue = 1000,
+    Callback = function(Value)
+        aimbotConfig.maxDistance = Value
+    end,
+})
+
+CombatTab:CreateDropdown({
+    Name = "Target Part",
+    Options = {"Head", "Torso", "HumanoidRootPart"},
+    CurrentOption = "Head",
+    Callback = function(Option)
+        aimbotConfig.targetPart = Option
+    end,
+})
+
+CombatTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = true,
+    Callback = function(Value)
+        aimbotConfig.teamCheck = Value
+    end,
+})
+
+CombatTab:CreateToggle({
+    Name = "Visibility Check",
+    CurrentValue = true,
+    Callback = function(Value)
+        aimbotConfig.visibleCheck = Value
+    end,
+})
+
 -- Misc Tab
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 MiscTab:CreateParagraph({Title = "Teleport Locations", Content = "Teleport to important places in StreetLife"})
@@ -485,6 +674,20 @@ PlayerTab:CreateSlider({
          hum.WalkSpeed = Value
       end
    end,
+})
+
+-- Aimbot Toggle in Player Tab
+PlayerTab:CreateToggle({
+    Name = "Aimbot",
+    CurrentValue = false,
+    Callback = function(Value)
+        aimbotConfig.enabled = Value
+        if Value then
+            startAimbot()
+        else
+            stopAimbot()
+        end
+    end,
 })
 
 -- ESP Tab (still empty)
