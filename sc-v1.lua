@@ -447,7 +447,8 @@ local aimbotConfig = {
     teamCheck = true,
     visibleCheck = true,
     maxDistance = 1000,
-    crosshairTargeting = true -- Use crosshair targeting instead of camera targeting
+    crosshairTargeting = true, -- Use crosshair targeting instead of camera targeting
+    headOffset = 0.3 -- Offset for head targeting (0.0 = bottom, 0.5 = center, 1.0 = top)
 }
 
 -- Aimbot Variables
@@ -475,18 +476,40 @@ local function getClosestPlayer()
             local character = player.Character
             local targetPart = nil
             
-            -- Find the correct target part
+            -- Find the correct target part with better detection
             if aimbotConfig.targetPart == "Head" then
-                targetPart = character:FindFirstChild("Head")
+                -- Try multiple head variations
+                targetPart = character:FindFirstChild("Head") or 
+                            character:FindFirstChild("HeadHB") or
+                            character:FindFirstChild("HeadHitbox")
+                
+                -- If still no head found, try to find it in accessories
+                if not targetPart then
+                    for _, accessory in pairs(character:GetChildren()) do
+                        if accessory:IsA("Accessory") and accessory:FindFirstChild("Handle") then
+                            local handle = accessory.Handle
+                            if handle.Name == "Head" or accessory.Name:lower():find("head") then
+                                targetPart = handle
+                                break
+                            end
+                        end
+                    end
+                end
             elseif aimbotConfig.targetPart == "Torso" then
-                targetPart = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+                targetPart = character:FindFirstChild("Torso") or 
+                            character:FindFirstChild("UpperTorso") or
+                            character:FindFirstChild("Chest")
             elseif aimbotConfig.targetPart == "HumanoidRootPart" then
-                targetPart = character:FindFirstChild("HumanoidRootPart")
+                targetPart = character:FindFirstChild("HumanoidRootPart") or
+                            character:FindFirstChild("RootPart")
             end
             
             -- Fallback to HumanoidRootPart if target part not found
             if not targetPart then
-                targetPart = character:FindFirstChild("HumanoidRootPart")
+                targetPart = character:FindFirstChild("HumanoidRootPart") or
+                            character:FindFirstChild("RootPart") or
+                            character:FindFirstChild("Torso") or
+                            character:FindFirstChild("UpperTorso")
             end
             
             if targetPart then
@@ -608,18 +631,40 @@ local function aimAtTarget(targetPlayer)
     local targetPart = nil
     local character = targetPlayer.Character
     
-    -- Try to find the specified target part
+    -- Try to find the specified target part with better detection
     if aimbotConfig.targetPart == "Head" then
-        targetPart = character:FindFirstChild("Head")
+        -- Try multiple head variations
+        targetPart = character:FindFirstChild("Head") or 
+                    character:FindFirstChild("HeadHB") or
+                    character:FindFirstChild("HeadHitbox")
+        
+        -- If still no head found, try to find it in accessories
+        if not targetPart then
+            for _, accessory in pairs(character:GetChildren()) do
+                if accessory:IsA("Accessory") and accessory:FindFirstChild("Handle") then
+                    local handle = accessory.Handle
+                    if handle.Name == "Head" or accessory.Name:lower():find("head") then
+                        targetPart = handle
+                        break
+                    end
+                end
+            end
+        end
     elseif aimbotConfig.targetPart == "Torso" then
-        targetPart = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+        targetPart = character:FindFirstChild("Torso") or 
+                    character:FindFirstChild("UpperTorso") or
+                    character:FindFirstChild("Chest")
     elseif aimbotConfig.targetPart == "HumanoidRootPart" then
-        targetPart = character:FindFirstChild("HumanoidRootPart")
+        targetPart = character:FindFirstChild("HumanoidRootPart") or
+                    character:FindFirstChild("RootPart")
     end
     
     -- Fallback to HumanoidRootPart if target part not found
     if not targetPart then
-        targetPart = character:FindFirstChild("HumanoidRootPart")
+        targetPart = character:FindFirstChild("HumanoidRootPart") or
+                    character:FindFirstChild("RootPart") or
+                    character:FindFirstChild("Torso") or
+                    character:FindFirstChild("UpperTorso")
         if not targetPart then
             return
         end
@@ -627,12 +672,20 @@ local function aimAtTarget(targetPlayer)
     
     if aimbotConfig.crosshairTargeting then
         -- Crosshair targeting mode (for unlock cursor)
-        local targetPosition, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+        local targetPosition = targetPart.Position
+        
+        -- Add offset for head targeting to aim at the center/top of the head
+        if aimbotConfig.targetPart == "Head" and targetPart.Size then
+            local offset = aimbotConfig.headOffset or 0.3
+            targetPosition = targetPosition + Vector3.new(0, targetPart.Size.Y * offset, 0)
+        end
+        
+        local screenPosition, onScreen = Camera:WorldToViewportPoint(targetPosition)
         if not onScreen then return end
         
         -- Get current mouse position
         local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
-        local targetScreenPos = Vector2.new(targetPosition.X, targetPosition.Y)
+        local targetScreenPos = Vector2.new(screenPosition.X, screenPosition.Y)
         
         -- Calculate mouse movement needed
         local mouseMovement = targetScreenPos - currentMousePos
@@ -643,7 +696,7 @@ local function aimAtTarget(targetPlayer)
         -- Only move if distance is significant enough and movement is reasonable
         if smoothedMovement.Magnitude > 0.5 and smoothedMovement.Magnitude < 100 then
             -- Debug output with target part info
-            print("Targeting", aimbotConfig.targetPart, "Moving mouse:", smoothedMovement.X, smoothedMovement.Y)
+            print("Targeting", aimbotConfig.targetPart, "(" .. targetPart.Name .. ") Moving mouse:", smoothedMovement.X, smoothedMovement.Y)
             simulateMouseMovement(smoothedMovement.X, smoothedMovement.Y)
         end
     else
@@ -791,6 +844,18 @@ CombatTab:CreateDropdown({
     Callback = function(Option)
         aimbotConfig.targetPart = Option
         print("Target Part changed to:", Option)
+    end,
+})
+
+CombatTab:CreateSlider({
+    Name = "Head Offset",
+    Range = {0, 1},
+    Increment = 0.1,
+    Suffix = "Height",
+    CurrentValue = 0.3,
+    Callback = function(Value)
+        aimbotConfig.headOffset = Value
+        print("Head Offset changed to:", Value)
     end,
 })
 
