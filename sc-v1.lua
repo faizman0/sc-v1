@@ -635,131 +635,130 @@ local doubleDamageConfig = {
 
 -- Double Damage Functions
 local function setupDoubleDamage()
-    local hookedEvents = {}
-    
-    -- Hook into RemoteEvents
-    local function hookRemoteEvent(event)
-        if event and event:IsA("RemoteEvent") and not hookedEvents[event] then
-            hookedEvents[event] = true
-            local originalFireServer = event.FireServer
-            
-            event.FireServer = function(self, ...)
-                local args = {...}
-                
-                if doubleDamageConfig.enabled then
-                    -- Process all arguments
-                    for i, arg in pairs(args) do
-                        if type(arg) == "number" and arg > 0 and arg < 10000 then
-                            -- Direct damage value
-                            args[i] = arg * doubleDamageConfig.multiplier
-                        elseif type(arg) == "table" then
-                            -- Table with damage data
-                            for key, value in pairs(arg) do
-                                if type(value) == "number" and value > 0 and value < 10000 then
-                                    -- Check if this looks like damage
-                                    local keyLower = tostring(key):lower()
-                                    if keyLower:find("damage") or keyLower:find("amount") or keyLower:find("dmg") or 
-                                       keyLower:find("health") or keyLower:find("hp") or keyLower:find("hit") then
-                                        arg[key] = value * doubleDamageConfig.multiplier
+    -- Hook into weapon damage systems
+    local function hookWeaponDamage()
+        -- Hook RemoteEvents for weapon damage
+        local function hookDamageEvent(event)
+            if event and event:IsA("RemoteEvent") then
+                local originalFire = event.FireServer
+                event.FireServer = function(self, ...)
+                    local args = {...}
+                    
+                    if doubleDamageConfig.enabled then
+                        -- Look for damage in arguments
+                        for i, arg in pairs(args) do
+                            if type(arg) == "number" and arg > 0 and arg < 1000 then
+                                -- Direct damage number
+                                args[i] = arg * doubleDamageConfig.multiplier
+                            elseif type(arg) == "table" then
+                                -- Table with damage data
+                                for key, value in pairs(arg) do
+                                    if type(value) == "number" and value > 0 and value < 1000 then
+                                        local keyLower = tostring(key):lower()
+                                        if keyLower:find("damage") or keyLower:find("dmg") or keyLower:find("amount") or 
+                                           keyLower:find("health") or keyLower:find("hp") or keyLower:find("hit") or
+                                           keyLower:find("force") or keyLower:find("power") then
+                                            arg[key] = value * doubleDamageConfig.multiplier
+                                        end
                                     end
                                 end
                             end
                         end
                     end
-                end
-                
-                return originalFireServer(self, unpack(args))
-            end
-        end
-    end
-    
-    -- Hook RemoteFunctions
-    local function hookRemoteFunction(func)
-        if func and func:IsA("RemoteFunction") and not hookedEvents[func] then
-            hookedEvents[func] = true
-            local originalInvokeServer = func.InvokeServer
-            
-            func.InvokeServer = function(self, ...)
-                local args = {...}
-                
-                if doubleDamageConfig.enabled then
-                    -- Process all arguments
-                    for i, arg in pairs(args) do
-                        if type(arg) == "number" and arg > 0 and arg < 10000 then
-                            args[i] = arg * doubleDamageConfig.multiplier
-                        elseif type(arg) == "table" then
-                            for key, value in pairs(arg) do
-                                if type(value) == "number" and value > 0 and value < 10000 then
-                                    local keyLower = tostring(key):lower()
-                                    if keyLower:find("damage") or keyLower:find("amount") or keyLower:find("dmg") or 
-                                       keyLower:find("health") or keyLower:find("hp") or keyLower:find("hit") then
-                                        arg[key] = value * doubleDamageConfig.multiplier
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-                
-                return originalInvokeServer(self, unpack(args))
-            end
-        end
-    end
-    
-    -- Hook all existing RemoteEvents and RemoteFunctions
-    local function hookAllEvents()
-        -- Hook ReplicatedStorage
-        if game.ReplicatedStorage then
-            for _, obj in pairs(game.ReplicatedStorage:GetDescendants()) do
-                if obj:IsA("RemoteEvent") then
-                    hookRemoteEvent(obj)
-                elseif obj:IsA("RemoteFunction") then
-                    hookRemoteFunction(obj)
+                    
+                    return originalFire(self, unpack(args))
                 end
             end
         end
         
-        -- Hook workspace
-        for _, obj in pairs(workspace:GetDescendants()) do
+        -- Hook RemoteFunctions for weapon damage
+        local function hookDamageFunction(func)
+            if func and func:IsA("RemoteFunction") then
+                local originalInvoke = func.InvokeServer
+                func.InvokeServer = function(self, ...)
+                    local args = {...}
+                    
+                    if doubleDamageConfig.enabled then
+                        -- Look for damage in arguments
+                        for i, arg in pairs(args) do
+                            if type(arg) == "number" and arg > 0 and arg < 1000 then
+                                args[i] = arg * doubleDamageConfig.multiplier
+                            elseif type(arg) == "table" then
+                                for key, value in pairs(arg) do
+                                    if type(value) == "number" and value > 0 and value < 1000 then
+                                        local keyLower = tostring(key):lower()
+                                        if keyLower:find("damage") or keyLower:find("dmg") or keyLower:find("amount") or 
+                                           keyLower:find("health") or keyLower:find("hp") or keyLower:find("hit") or
+                                           keyLower:find("force") or keyLower:find("power") then
+                                            arg[key] = value * doubleDamageConfig.multiplier
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
+                    return originalInvoke(self, unpack(args))
+                end
+            end
+        end
+        
+        -- Hook all RemoteEvents and RemoteFunctions
+        local function hookAll()
+            -- Hook ReplicatedStorage
+            if game.ReplicatedStorage then
+                for _, obj in pairs(game.ReplicatedStorage:GetDescendants()) do
+                    if obj:IsA("RemoteEvent") then
+                        hookDamageEvent(obj)
+                    elseif obj:IsA("RemoteFunction") then
+                        hookDamageFunction(obj)
+                    end
+                end
+            end
+            
+            -- Hook workspace
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("RemoteEvent") then
+                    hookDamageEvent(obj)
+                elseif obj:IsA("RemoteFunction") then
+                    hookDamageFunction(obj)
+                end
+            end
+            
+            -- Hook Players
+            if game.Players then
+                for _, obj in pairs(game.Players:GetDescendants()) do
+                    if obj:IsA("RemoteEvent") then
+                        hookDamageEvent(obj)
+                    elseif obj:IsA("RemoteFunction") then
+                        hookDamageFunction(obj)
+                    end
+                end
+            end
+        end
+        
+        -- Initial hook
+        hookAll()
+        
+        -- Hook new events
+        local function onAdded(obj)
             if obj:IsA("RemoteEvent") then
-                hookRemoteEvent(obj)
+                hookDamageEvent(obj)
             elseif obj:IsA("RemoteFunction") then
-                hookRemoteFunction(obj)
+                hookDamageFunction(obj)
             end
         end
         
-        -- Hook Players
+        if game.ReplicatedStorage then
+            game.ReplicatedStorage.DescendantAdded:Connect(onAdded)
+        end
+        workspace.DescendantAdded:Connect(onAdded)
         if game.Players then
-            for _, obj in pairs(game.Players:GetDescendants()) do
-                if obj:IsA("RemoteEvent") then
-                    hookRemoteEvent(obj)
-                elseif obj:IsA("RemoteFunction") then
-                    hookRemoteFunction(obj)
-                end
-            end
+            game.Players.DescendantAdded:Connect(onAdded)
         end
     end
     
-    -- Initial hook
-    hookAllEvents()
-    
-    -- Hook new events as they're added
-    local function onDescendantAdded(obj)
-        if obj:IsA("RemoteEvent") then
-            hookRemoteEvent(obj)
-        elseif obj:IsA("RemoteFunction") then
-            hookRemoteFunction(obj)
-        end
-    end
-    
-    -- Connect to descendant added events
-    if game.ReplicatedStorage then
-        game.ReplicatedStorage.DescendantAdded:Connect(onDescendantAdded)
-    end
-    workspace.DescendantAdded:Connect(onDescendantAdded)
-    if game.Players then
-        game.Players.DescendantAdded:Connect(onDescendantAdded)
-    end
+    hookWeaponDamage()
 end
 
 -- Setup double damage
