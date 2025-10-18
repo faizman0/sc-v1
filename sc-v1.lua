@@ -861,8 +861,20 @@ local function setupMaxHealth()
         local char = game.Players.LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") then
             local humanoid = char.Humanoid
+            
+            -- Set both MaxHealth and Health to the desired value
             humanoid.MaxHealth = maxHealthConfig.healthValue
             humanoid.Health = maxHealthConfig.healthValue
+            
+            -- Also try to modify any health-related values in the character
+            for _, obj in pairs(char:GetDescendants()) do
+                if obj:IsA("IntValue") or obj:IsA("NumberValue") then
+                    local name = obj.Name:lower()
+                    if name:find("health") or name:find("hp") or name:find("maxhealth") then
+                        obj.Value = maxHealthConfig.healthValue
+                    end
+                end
+            end
         end
     end
     
@@ -886,11 +898,19 @@ local function setupMaxHealth()
             local char = game.Players.LocalPlayer.Character
             if char and char:FindFirstChild("Humanoid") then
                 local humanoid = char.Humanoid
-                if humanoid.Health < maxHealthConfig.healthValue then
-                    humanoid.Health = maxHealthConfig.healthValue
-                end
-                if humanoid.MaxHealth ~= maxHealthConfig.healthValue then
-                    humanoid.MaxHealth = maxHealthConfig.healthValue
+                
+                -- Force set both MaxHealth and Health
+                humanoid.MaxHealth = maxHealthConfig.healthValue
+                humanoid.Health = maxHealthConfig.healthValue
+                
+                -- Also modify any health-related values in the character
+                for _, obj in pairs(char:GetDescendants()) do
+                    if obj:IsA("IntValue") or obj:IsA("NumberValue") then
+                        local name = obj.Name:lower()
+                        if name:find("health") or name:find("hp") or name:find("maxhealth") then
+                            obj.Value = maxHealthConfig.healthValue
+                        end
+                    end
                 end
             end
         else
@@ -914,8 +934,21 @@ PlayerTab:CreateToggle({
             -- Set health immediately when enabled
             local char = game.Players.LocalPlayer.Character
             if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.MaxHealth = maxHealthConfig.healthValue
-                char.Humanoid.Health = maxHealthConfig.healthValue
+                local humanoid = char.Humanoid
+                
+                -- Force set both MaxHealth and Health
+                humanoid.MaxHealth = maxHealthConfig.healthValue
+                humanoid.Health = maxHealthConfig.healthValue
+                
+                -- Also modify any health-related values in the character
+                for _, obj in pairs(char:GetDescendants()) do
+                    if obj:IsA("IntValue") or obj:IsA("NumberValue") then
+                        local name = obj.Name:lower()
+                        if name:find("health") or name:find("hp") or name:find("maxhealth") then
+                            obj.Value = maxHealthConfig.healthValue
+                        end
+                    end
+                end
             end
         end
     end,
@@ -940,191 +973,5 @@ PlayerTab:CreateSlider({
     end,
 })
 
--- Rob Corpses Configuration (Bypass Payment System)
-local robCorpsesConfig = {
-    enabled = false,
-    robDistance = 50,
-    robDelay = 0.5,
-    bypassPayment = true
-}
-
--- Rob Corpses Functions (Free Robbing System)
-local function setupRobCorpses()
-    local lastRobTime = 0
-    
-    local function findDeadPlayers()
-        local corpses = {}
-        local playerPos = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        
-        if not playerPos then return corpses end
-        
-        -- Look for dead players in workspace
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Model") and obj.Name == "Character" then
-                local humanoid = obj:FindFirstChild("Humanoid")
-                local rootPart = obj:FindFirstChild("HumanoidRootPart")
-                
-                if humanoid and rootPart and humanoid.Health <= 0 then
-                    local distance = (rootPart.Position - playerPos.Position).Magnitude
-                    if distance <= robCorpsesConfig.robDistance then
-                        table.insert(corpses, obj)
-                    end
-                end
-            end
-        end
-        
-        return corpses
-    end
-    
-    local function bypassRobberyPayment()
-        -- Hook into robbery payment systems
-        local function hookRobberyEvents()
-            -- Look for robbery-related RemoteEvents
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("RemoteEvent") then
-                    local name = obj.Name:lower()
-                    if name:find("rob") or name:find("loot") or name:find("steal") or name:find("corpse") then
-                        local originalFire = obj.FireServer
-                        obj.FireServer = function(self, ...)
-                            local args = {...}
-                            
-                            if robCorpsesConfig.bypassPayment then
-                                -- Modify arguments to bypass payment
-                                for i, arg in pairs(args) do
-                                    if type(arg) == "table" then
-                                        -- Remove payment requirements
-                                        if arg.payment or arg.pay or arg.cost or arg.price then
-                                            arg.payment = 0
-                                            arg.pay = 0
-                                            arg.cost = 0
-                                            arg.price = 0
-                                        end
-                                        -- Set as free robbery
-                                        arg.free = true
-                                        arg.premium = true
-                                        arg.vip = true
-                                    end
-                                end
-                            end
-                            
-                            return originalFire(self, unpack(args))
-                        end
-                    end
-                end
-            end
-        end
-        
-        hookRobberyEvents()
-    end
-    
-    local function robCorpse(corpse)
-        if not corpse or not corpse:FindFirstChild("HumanoidRootPart") then return end
-        
-        local rootPart = corpse.HumanoidRootPart
-        local playerPos = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        
-        if not playerPos then return end
-        
-        -- Teleport to corpse for robbery
-        local tween = TweenService:Create(playerPos, TweenInfo.new(0.3, Enum.EasingStyle.Linear), {CFrame = rootPart.CFrame})
-        tween:Play()
-        
-        -- Bypass payment system and rob directly
-        bypassRobberyPayment()
-        
-        -- Look for items to rob
-        for _, obj in pairs(corpse:GetDescendants()) do
-            if obj:IsA("Tool") or obj:IsA("Part") then
-                -- Rob weapons/tools
-                if obj:IsA("Tool") then
-                    obj.Parent = game.Players.LocalPlayer.Backpack
-                elseif obj:IsA("Part") and (obj.Name:lower():find("money") or obj.Name:lower():find("cash") or obj.Name:lower():find("coin") or obj.Name:lower():find("wallet")) then
-                    -- Rob money/cash directly
-                    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 0)
-                    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 1)
-                end
-            end
-        end
-        
-        -- Rob dropped items near corpse
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Tool") or obj:IsA("Part") then
-                local distance = (obj.Position - rootPart.Position).Magnitude
-                if distance <= 10 then
-                    if obj:IsA("Tool") then
-                        obj.Parent = game.Players.LocalPlayer.Backpack
-                    elseif obj:IsA("Part") and (obj.Name:lower():find("money") or obj.Name:lower():find("cash") or obj.Name:lower():find("coin") or obj.Name:lower():find("wallet")) then
-                        firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 0)
-                        firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 1)
-                    end
-                end
-            end
-        end
-        
-        -- Try to trigger robbery events with bypassed payment
-        local robberyEvents = {"RobCorpse", "LootCorpse", "StealCorpse", "RobPlayer", "LootPlayer"}
-        for _, eventName in pairs(robberyEvents) do
-            local event = workspace:FindFirstChild(eventName) or game.ReplicatedStorage:FindFirstChild(eventName)
-            if event and event:IsA("RemoteEvent") then
-                event:FireServer(corpse, {free = true, premium = true, payment = 0})
-            end
-        end
-    end
-    
-    -- Main robbery loop
-    local robConnection
-    robConnection = game:GetService("RunService").Heartbeat:Connect(function()
-        if robCorpsesConfig.enabled then
-            local currentTime = tick()
-            if currentTime - lastRobTime >= robCorpsesConfig.robDelay then
-                local corpses = findDeadPlayers()
-                if #corpses > 0 then
-                    robCorpse(corpses[1]) -- Rob the first corpse found
-                    lastRobTime = currentTime
-                end
-            end
-        else
-            if robConnection then
-                robConnection:Disconnect()
-            end
-        end
-    end)
-end
-
--- Setup rob corpses
-pcall(setupRobCorpses)
-
--- Rob Corpses Toggle in Player Tab
-PlayerTab:CreateToggle({
-    Name = "Free Rob Corpses",
-    CurrentValue = false,
-    Callback = function(Value)
-        robCorpsesConfig.enabled = Value
-    end,
-})
-
--- Rob Distance Slider in Player Tab
-PlayerTab:CreateSlider({
-    Name = "Rob Distance",
-    Range = {10, 200},
-    Increment = 10,
-    Suffix = "Studs",
-    CurrentValue = 50,
-    Callback = function(Value)
-        robCorpsesConfig.robDistance = Value
-    end,
-})
-
--- Rob Delay Slider in Player Tab
-PlayerTab:CreateSlider({
-    Name = "Rob Delay",
-    Range = {0.1, 2},
-    Increment = 0.1,
-    Suffix = "Seconds",
-    CurrentValue = 0.5,
-    Callback = function(Value)
-        robCorpsesConfig.robDelay = Value
-    end,
-})
 
 -- ESP Tab (still empty)
