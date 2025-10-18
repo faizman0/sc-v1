@@ -396,7 +396,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 -- })
 
 local Window = Rayfield:CreateWindow({
-   Name = "Streetlife",
+   Name = "Faiz Ni Boss Senggol Dong",
    Icon = 0,
    LoadingTitle = "Faiz",
    LoadingSubtitle = "by Faiz ni boss",
