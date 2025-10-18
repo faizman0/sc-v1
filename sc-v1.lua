@@ -447,8 +447,7 @@ local aimbotConfig = {
     teamCheck = true,
     visibleCheck = true,
     maxDistance = 1000,
-    crosshairTargeting = true, -- Use crosshair targeting instead of camera targeting
-    mouseSensitivity = 5 -- Sensitivity multiplier for mouse movement
+    crosshairTargeting = true -- Use crosshair targeting instead of camera targeting
 }
 
 -- Aimbot Variables
@@ -579,78 +578,45 @@ print("Initial Target Part:", aimbotConfig.targetPart)
 
 -- Mouse movement simulation function
 local function simulateMouseMovement(deltaX, deltaY)
-    -- Validate input parameters
-    if deltaX == nil or deltaY == nil then
-        print("Error: simulateMouseMovement received nil parameters")
-        return false
-    end
-    
-    -- Ensure deltaX and deltaY are numbers
-    deltaX = tonumber(deltaX) or 0
-    deltaY = tonumber(deltaY) or 0
-    
-    -- Skip if movement is too small
-    if math.abs(deltaX) < 0.1 and math.abs(deltaY) < 0.1 then
-        return false
-    end
+    -- Try multiple methods for mouse movement
     
     -- Method 1: mousemoverel (most common in exploit environments)
-    if mousemoverel and type(mousemoverel) == "function" then
-        local success, err = pcall(function()
+    if mouseMovementMethods.mousemoverel then
+        local success = pcall(function()
             mousemoverel(deltaX, deltaY)
         end)
         if success then
             return true
-        else
-            print("mousemoverel failed:", err)
         end
     end
     
     -- Method 2: setmousepos (direct position setting)
-    if setmousepos and type(setmousepos) == "function" then
-        local success, err = pcall(function()
-            if Mouse and Mouse.X and Mouse.Y then
-                local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
-                local newMousePos = currentMousePos + Vector2.new(deltaX, deltaY)
-                setmousepos(newMousePos.X, newMousePos.Y)
-            end
+    if mouseMovementMethods.setmousepos then
+        local success = pcall(function()
+            local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
+            local newMousePos = currentMousePos + Vector2.new(deltaX, deltaY)
+            setmousepos(newMousePos.X, newMousePos.Y)
         end)
         if success then
             return true
-        else
-            print("setmousepos failed:", err)
         end
     end
     
     -- Method 3: VirtualInputManager (fallback)
-    if VirtualInputManager and VirtualInputManager.SendMouseMoveEvent then
-        local success, err = pcall(function()
-            local mouseDelta = Vector2.new(deltaX, deltaY)
-            VirtualInputManager:SendMouseMoveEvent(mouseDelta)
-        end)
-        
-        if not success then
-            print("VirtualInputManager failed:", err)
-        end
-        
-        return success
-    end
+    local mouseDelta = Vector2.new(deltaX, deltaY)
+    local success = pcall(function()
+        VirtualInputManager:SendMouseMoveEvent(mouseDelta)
+    end)
     
-    return false
+    return success
 end
 
 local function aimAtTarget(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then 
-        return 
-    end
-    
-    local character = targetPlayer.Character
-    if not character then 
-        return 
-    end
+    if not targetPlayer or not targetPlayer.Character then return end
     
     -- Find the correct target part
     local targetPart = nil
+    local character = targetPlayer.Character
     
     -- Ensure targetPart is a string
     local targetPartName = tostring(aimbotConfig.targetPart)
@@ -684,55 +650,17 @@ local function aimAtTarget(targetPlayer)
         local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
         local targetScreenPos = Vector2.new(targetPosition.X, targetPosition.Y)
         
-        -- Validate positions
-        if not currentMousePos or not targetScreenPos then
-            return
-        end
-        
         -- Calculate mouse movement needed
         local mouseMovement = targetScreenPos - currentMousePos
         
-        -- Validate movement vector
-        if not mouseMovement then
-            return
-        end
-        
         -- Apply smoothing for more natural movement
-        local smoothing = tonumber(aimbotConfig.smoothing) or 0.1
-        local smoothedMovement = mouseMovement * smoothing
+        local smoothedMovement = mouseMovement * aimbotConfig.smoothing
         
-        -- Validate smoothed movement
-        if not smoothedMovement then
-            return
-        end
-        
-        -- Apply mouse sensitivity and movement scaling
-        local sensitivity = tonumber(aimbotConfig.mouseSensitivity) or 5
-        local minMovement = 1 -- Minimum pixels to move
-        local maxMovement = 100 -- Maximum pixels to move in one frame
-        
-        if smoothedMovement.Magnitude > 0.01 then
-            -- Apply sensitivity multiplier
-            local sensitiveMovement = smoothedMovement * sensitivity
-            
-            -- Scale up small movements for better responsiveness
-            if sensitiveMovement.Magnitude < minMovement then
-                local scaleFactor = minMovement / sensitiveMovement.Magnitude
-                sensitiveMovement = sensitiveMovement * scaleFactor
-            end
-            
-            -- Limit maximum movement
-            if sensitiveMovement.Magnitude > maxMovement then
-                sensitiveMovement = sensitiveMovement.Unit * maxMovement
-            end
-            
-            -- Ensure movement values are valid numbers
-            local moveX = tonumber(sensitiveMovement.X) or 0
-            local moveY = tonumber(sensitiveMovement.Y) or 0
-            
+        -- Only move if distance is significant enough and movement is reasonable
+        if smoothedMovement.Magnitude > 0.5 and smoothedMovement.Magnitude < 100 then
             -- Debug output with target part info
-            print("Targeting", targetPartName, "(" .. targetPart.Name .. ") Moving mouse:", moveX, moveY)
-            simulateMouseMovement(moveX, moveY)
+            print("Targeting", targetPartName, "(" .. targetPart.Name .. ") Moving mouse:", smoothedMovement.X, smoothedMovement.Y)
+            simulateMouseMovement(smoothedMovement.X, smoothedMovement.Y)
         end
     else
         -- Camera targeting mode (for lock cursor)
@@ -903,17 +831,6 @@ CombatTab:CreateSlider({
     CurrentValue = 1000,
     Callback = function(Value)
         aimbotConfig.maxDistance = Value
-    end,
-})
-
-CombatTab:CreateSlider({
-    Name = "Mouse Sensitivity",
-    Range = {1, 20},
-    Increment = 1,
-    Suffix = "x",
-    CurrentValue = 5,
-    Callback = function(Value)
-        aimbotConfig.mouseSensitivity = Value
     end,
 })
 
@@ -1102,40 +1019,38 @@ CombatTab:CreateSlider({
 
 -- Misc Tab
 local MiscTab = Window:CreateTab("Misc", 4483362458)
-print("Creating Misc Tab...")
 MiscTab:CreateParagraph({Title = "Teleport Locations", Content = "Teleport to important places in StreetLife"})
 
-MiscTab:CreateButton({
-   Name = "Teleport to Rap Station",
-   Callback = function()
-      SafeTeleport(Vector3.new(902.2052, 53.62046, -60.20349))
-   end,
-})
+-- MiscTab:CreateButton({
+--    Name = "Teleport to Rap Station",
+--    Callback = function()
+--       SafeTeleport(Vector3.new(902.2052, 53.62046, -60.20349))
+--    end,
+-- })
 
-MiscTab:CreateButton({
-   Name = "Teleport to Apartment 1",
-   Callback = function()
-      SafeTeleport(Vector3.new(552.0478, -44.42898, -187.2999))
-   end,
-})
+-- MiscTab:CreateButton({
+--    Name = "Teleport to Apartment 1",
+--    Callback = function()
+--       SafeTeleport(Vector3.new(552.0478, -44.42898, -187.2999))
+--    end,
+-- })
 
-MiscTab:CreateButton({
-   Name = "Teleport to Bank",
-   Callback = function()
-      SafeTeleport(Vector3.new(397.2554, 49.25748, 101.6725))
-   end,
-})
+-- MiscTab:CreateButton({
+--    Name = "Teleport to Bank",
+--    Callback = function()
+--       SafeTeleport(Vector3.new(397.2554, 49.25748, 101.6725))
+--    end,
+-- })
 
-MiscTab:CreateButton({
-   Name = "Teleport to The ICE",
-   Callback = function()
-      SafeTeleport(Vector3.new(185.0867, -89.2156, 150.2669))
-   end,
-})
+-- MiscTab:CreateButton({
+--    Name = "Teleport to The ICE",
+--    Callback = function()
+--       SafeTeleport(Vector3.new(185.0867, -89.2156, 150.2669))
+--    end,
+-- })
 
 -- Player Tab
 local PlayerTab = Window:CreateTab("Player", 4483362458)
-print("Creating Player Tab...")
 PlayerTab:CreateSlider({
    Name = "WalkSpeed",
    Range = {1, 250},
@@ -1291,9 +1206,4 @@ PlayerTab:CreateToggle({
 })
 
 
--- ESP Tab
-local ESPTab = Window:CreateTab("ESP", 4483362458)
-print("Creating ESP Tab...")
-ESPTab:CreateParagraph({Title = "ESP Features", Content = "Coming Soon - ESP features will be added here"})
-
-print("All tabs created successfully!")
+-- ESP Tab (still empty)
