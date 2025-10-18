@@ -1102,38 +1102,40 @@ CombatTab:CreateSlider({
 
 -- Misc Tab
 local MiscTab = Window:CreateTab("Misc", 4483362458)
+print("Creating Misc Tab...")
 MiscTab:CreateParagraph({Title = "Teleport Locations", Content = "Teleport to important places in StreetLife"})
 
--- MiscTab:CreateButton({
---    Name = "Teleport to Rap Station",
---    Callback = function()
---       SafeTeleport(Vector3.new(902.2052, 53.62046, -60.20349))
---    end,
--- })
+MiscTab:CreateButton({
+   Name = "Teleport to Rap Station",
+   Callback = function()
+      SafeTeleport(Vector3.new(902.2052, 53.62046, -60.20349))
+   end,
+})
 
--- MiscTab:CreateButton({
---    Name = "Teleport to Apartment 1",
---    Callback = function()
---       SafeTeleport(Vector3.new(552.0478, -44.42898, -187.2999))
---    end,
--- })
+MiscTab:CreateButton({
+   Name = "Teleport to Apartment 1",
+   Callback = function()
+      SafeTeleport(Vector3.new(552.0478, -44.42898, -187.2999))
+   end,
+})
 
--- MiscTab:CreateButton({
---    Name = "Teleport to Bank",
---    Callback = function()
---       SafeTeleport(Vector3.new(397.2554, 49.25748, 101.6725))
---    end,
--- })
+MiscTab:CreateButton({
+   Name = "Teleport to Bank",
+   Callback = function()
+      SafeTeleport(Vector3.new(397.2554, 49.25748, 101.6725))
+   end,
+})
 
--- MiscTab:CreateButton({
---    Name = "Teleport to The ICE",
---    Callback = function()
---       SafeTeleport(Vector3.new(185.0867, -89.2156, 150.2669))
---    end,
--- })
+MiscTab:CreateButton({
+   Name = "Teleport to The ICE",
+   Callback = function()
+      SafeTeleport(Vector3.new(185.0867, -89.2156, 150.2669))
+   end,
+})
 
 -- Player Tab
 local PlayerTab = Window:CreateTab("Player", 4483362458)
+print("Creating Player Tab...")
 PlayerTab:CreateSlider({
    Name = "WalkSpeed",
    Range = {1, 250},
@@ -1289,4 +1291,9 @@ PlayerTab:CreateToggle({
 })
 
 
--- ESP Tab (still empty)
+-- ESP Tab
+local ESPTab = Window:CreateTab("ESP", 4483362458)
+print("Creating ESP Tab...")
+ESPTab:CreateParagraph({Title = "ESP Features", Content = "Coming Soon - ESP features will be added here"})
+
+print("All tabs created successfully!")
