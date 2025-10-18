@@ -567,6 +567,33 @@ local function stopAimbot()
     end
 end
 
+-- Z Key Toggle for Aimbot
+local aimbotToggleUI = nil
+local function toggleAimbot()
+    aimbotConfig.enabled = not aimbotConfig.enabled
+    if aimbotConfig.enabled then
+        startAimbot()
+        print("Aimbot: ON")
+    else
+        stopAimbot()
+        print("Aimbot: OFF")
+    end
+    
+    -- Update UI toggle if it exists
+    if aimbotToggleUI then
+        aimbotToggleUI:Set(aimbotConfig.enabled)
+    end
+end
+
+-- Key Bind for Z Key
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.Z then
+        toggleAimbot()
+    end
+end)
+
 -- Aimbot UI Controls
 
 CombatTab:CreateSlider({
@@ -826,7 +853,7 @@ PlayerTab:CreateSlider({
 })
 
 -- Aimbot Toggle in Player Tab
-PlayerTab:CreateToggle({
+aimbotToggleUI = PlayerTab:CreateToggle({
     Name = "Aimbot",
     CurrentValue = false,
     Callback = function(Value)
