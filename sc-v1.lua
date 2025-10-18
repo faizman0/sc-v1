@@ -475,22 +475,16 @@ local function getClosestPlayer()
             local character = player.Character
             local targetPart = nil
             
-            -- Ensure targetPart is a string
-            local targetPartName = tostring(aimbotConfig.targetPart)
-            
             -- Find the correct target part
-            if targetPartName == "Head" then
+            if aimbotConfig.targetPart == "Head" then
                 targetPart = character:FindFirstChild("Head")
-            elseif targetPartName == "Torso" then
+            elseif aimbotConfig.targetPart == "Torso" then
                 targetPart = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-            elseif targetPartName == "HumanoidRootPart" then
-                targetPart = character:FindFirstChild("HumanoidRootPart")
-            else
-                -- Default fallback
+            elseif aimbotConfig.targetPart == "HumanoidRootPart" then
                 targetPart = character:FindFirstChild("HumanoidRootPart")
             end
             
-            -- Final fallback to HumanoidRootPart if target part not found
+            -- Fallback to HumanoidRootPart if target part not found
             if not targetPart then
                 targetPart = character:FindFirstChild("HumanoidRootPart")
             end
@@ -572,10 +566,6 @@ for method, available in pairs(mouseMovementMethods) do
     print("- " .. method .. ": " .. (available and "YES" or "NO"))
 end
 
--- Fix target part configuration on startup
-fixTargetPartConfig()
-print("Initial Target Part:", aimbotConfig.targetPart)
-
 -- Mouse movement simulation function
 local function simulateMouseMovement(deltaX, deltaY)
     -- Try multiple methods for mouse movement
@@ -618,18 +608,12 @@ local function aimAtTarget(targetPlayer)
     local targetPart = nil
     local character = targetPlayer.Character
     
-    -- Ensure targetPart is a string
-    local targetPartName = tostring(aimbotConfig.targetPart)
-    
     -- Try to find the specified target part
-    if targetPartName == "Head" then
+    if aimbotConfig.targetPart == "Head" then
         targetPart = character:FindFirstChild("Head")
-    elseif targetPartName == "Torso" then
+    elseif aimbotConfig.targetPart == "Torso" then
         targetPart = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-    elseif targetPartName == "HumanoidRootPart" then
-        targetPart = character:FindFirstChild("HumanoidRootPart")
-    else
-        -- Default fallback
+    elseif aimbotConfig.targetPart == "HumanoidRootPart" then
         targetPart = character:FindFirstChild("HumanoidRootPart")
     end
     
@@ -659,7 +643,7 @@ local function aimAtTarget(targetPlayer)
         -- Only move if distance is significant enough and movement is reasonable
         if smoothedMovement.Magnitude > 0.5 and smoothedMovement.Magnitude < 100 then
             -- Debug output with target part info
-            print("Targeting", targetPartName, "(" .. targetPart.Name .. ") Moving mouse:", smoothedMovement.X, smoothedMovement.Y)
+            print("Targeting", aimbotConfig.targetPart, "Moving mouse:", smoothedMovement.X, smoothedMovement.Y)
             simulateMouseMovement(smoothedMovement.X, smoothedMovement.Y)
         end
     else
@@ -730,42 +714,10 @@ local function validateTargetPart()
         if character:FindFirstChild("HumanoidRootPart") then
             table.insert(validParts, "HumanoidRootPart")
         end
-        
-        -- Debug: Show all available parts
-        print("All available parts in character:")
-        for _, part in pairs(character:GetChildren()) do
-            if part:IsA("BasePart") then
-                print("- " .. part.Name .. " (" .. part.ClassName .. ")")
-            end
-        end
     end
     
     print("Available target parts:", table.concat(validParts, ", "))
     return validParts
-end
-
--- Function to fix target part configuration
-local function fixTargetPartConfig()
-    -- Ensure targetPart is a valid string
-    if type(aimbotConfig.targetPart) ~= "string" then
-        print("Fixing targetPart type from", type(aimbotConfig.targetPart), "to string")
-        aimbotConfig.targetPart = "Head"
-    end
-    
-    -- Validate target part name
-    local validParts = {"Head", "Torso", "HumanoidRootPart"}
-    local isValid = false
-    for _, part in pairs(validParts) do
-        if aimbotConfig.targetPart == part then
-            isValid = true
-            break
-        end
-    end
-    
-    if not isValid then
-        print("Invalid target part:", aimbotConfig.targetPart, "- Setting to Head")
-        aimbotConfig.targetPart = "Head"
-    end
 end
 
 -- Z Key Toggle for Aimbot
@@ -773,8 +725,6 @@ local aimbotToggleUI = nil
 local function toggleAimbot()
     aimbotConfig.enabled = not aimbotConfig.enabled
     if aimbotConfig.enabled then
-        -- Fix target part configuration before starting
-        fixTargetPartConfig()
         startAimbot()
         print("Aimbot: ON - Mode:", aimbotConfig.crosshairTargeting and "Crosshair Targeting" or "Camera Targeting")
         print("Target Part:", aimbotConfig.targetPart)
