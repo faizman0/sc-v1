@@ -849,125 +849,117 @@ PlayerTab:CreateToggle({
     end,
 })
 
--- Max Health Configuration
-local maxHealthConfig = {
-    enabled = false,
-    healthValue = 100
+-- Invincibility Configuration
+local invincibilityConfig = {
+    enabled = false
 }
 
--- Max Health Functions
-local function setupMaxHealth()
-    local function setMaxHealth()
+-- Invincibility Functions
+local function setupInvincibility()
+    local function makeInvincible()
         local char = game.Players.LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") then
             local humanoid = char.Humanoid
             
-            -- Set both MaxHealth and Health to the desired value
-            humanoid.MaxHealth = maxHealthConfig.healthValue
-            humanoid.Health = maxHealthConfig.healthValue
+            -- Set health to maximum
+            humanoid.MaxHealth = math.huge
+            humanoid.Health = math.huge
             
-            -- Also try to modify any health-related values in the character
+            -- Make humanoid invincible
+            humanoid.PlatformStand = false
+            humanoid.Sit = false
+            
+            -- Try to modify any health-related values
             for _, obj in pairs(char:GetDescendants()) do
                 if obj:IsA("IntValue") or obj:IsA("NumberValue") then
                     local name = obj.Name:lower()
                     if name:find("health") or name:find("hp") or name:find("maxhealth") then
-                        obj.Value = maxHealthConfig.healthValue
+                        obj.Value = math.huge
                     end
                 end
             end
         end
     end
     
-    -- Set max health when character spawns
+    -- Apply invincibility when character spawns
     game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
-        if maxHealthConfig.enabled then
+        if invincibilityConfig.enabled then
             wait(1) -- Wait for character to fully load
-            setMaxHealth()
+            makeInvincible()
         end
     end)
     
-    -- Set max health for current character
+    -- Apply invincibility for current character
     if game.Players.LocalPlayer.Character then
-        setMaxHealth()
+        makeInvincible()
     end
     
-    -- Monitor health and restore if damaged
-    local healthConnection
-    healthConnection = game:GetService("RunService").Heartbeat:Connect(function()
-        if maxHealthConfig.enabled then
+    -- Monitor and maintain invincibility
+    local invincibilityConnection
+    invincibilityConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if invincibilityConfig.enabled then
             local char = game.Players.LocalPlayer.Character
             if char and char:FindFirstChild("Humanoid") then
                 local humanoid = char.Humanoid
                 
-                -- Force set both MaxHealth and Health
-                humanoid.MaxHealth = maxHealthConfig.healthValue
-                humanoid.Health = maxHealthConfig.healthValue
+                -- Force maintain invincibility
+                humanoid.MaxHealth = math.huge
+                humanoid.Health = math.huge
                 
-                -- Also modify any health-related values in the character
+                -- Prevent any damage
+                humanoid.PlatformStand = false
+                humanoid.Sit = false
+                
+                -- Modify any health-related values
                 for _, obj in pairs(char:GetDescendants()) do
                     if obj:IsA("IntValue") or obj:IsA("NumberValue") then
                         local name = obj.Name:lower()
                         if name:find("health") or name:find("hp") or name:find("maxhealth") then
-                            obj.Value = maxHealthConfig.healthValue
+                            obj.Value = math.huge
                         end
                     end
                 end
             end
         else
-            if healthConnection then
-                healthConnection:Disconnect()
+            if invincibilityConnection then
+                invincibilityConnection:Disconnect()
             end
         end
     end)
 end
 
--- Setup max health
-pcall(setupMaxHealth)
+-- Setup invincibility
+pcall(setupInvincibility)
 
--- Max Health Toggle in Player Tab
+-- Invincibility Toggle in Player Tab
 PlayerTab:CreateToggle({
-    Name = "Max Health",
+    Name = "Invincibility (God Mode)",
     CurrentValue = false,
     Callback = function(Value)
-        maxHealthConfig.enabled = Value
+        invincibilityConfig.enabled = Value
         if Value then
-            -- Set health immediately when enabled
+            -- Apply invincibility immediately when enabled
             local char = game.Players.LocalPlayer.Character
             if char and char:FindFirstChild("Humanoid") then
                 local humanoid = char.Humanoid
                 
-                -- Force set both MaxHealth and Health
-                humanoid.MaxHealth = maxHealthConfig.healthValue
-                humanoid.Health = maxHealthConfig.healthValue
+                -- Set health to infinite
+                humanoid.MaxHealth = math.huge
+                humanoid.Health = math.huge
                 
-                -- Also modify any health-related values in the character
+                -- Prevent damage
+                humanoid.PlatformStand = false
+                humanoid.Sit = false
+                
+                -- Modify any health-related values
                 for _, obj in pairs(char:GetDescendants()) do
                     if obj:IsA("IntValue") or obj:IsA("NumberValue") then
                         local name = obj.Name:lower()
                         if name:find("health") or name:find("hp") or name:find("maxhealth") then
-                            obj.Value = maxHealthConfig.healthValue
+                            obj.Value = math.huge
                         end
                     end
                 end
-            end
-        end
-    end,
-})
-
--- Max Health Slider in Player Tab
-PlayerTab:CreateSlider({
-    Name = "Max Health Value",
-    Range = {50, 1000},
-    Increment = 10,
-    Suffix = "HP",
-    CurrentValue = 100,
-    Callback = function(Value)
-        maxHealthConfig.healthValue = Value
-        if maxHealthConfig.enabled then
-            local char = game.Players.LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.MaxHealth = Value
-                char.Humanoid.Health = Value
             end
         end
     end,
