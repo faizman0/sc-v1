@@ -932,7 +932,7 @@ pcall(setupInvincibility)
 
 -- Invincibility Toggle in Player Tab
 PlayerTab:CreateToggle({
-    Name = "Invincibility (God Mode)",
+    Name = "Kekebalan (Mode Dewa)",
     CurrentValue = false,
     Callback = function(Value)
         invincibilityConfig.enabled = Value
@@ -961,6 +961,149 @@ PlayerTab:CreateToggle({
                 end
             end
         end
+    end,
+})
+
+-- Autofarm Configuration
+local autofarmConfig = {
+    enabled = false,
+    farmDistance = 50,
+    farmDelay = 0.1,
+    autoSell = false,
+    autoPickupMoney = false,
+    autoLootTrash = false
+}
+
+-- Autofarm Functions
+local function setupAutofarm()
+    -- Auto Pickup Money Function
+    local function setupAutoPickupMoney()
+        local function modifyMoneyPrompts()
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v:IsA("ProximityPrompt") and v.Name == "ProximityPrompt" then
+                    v.HoldDuration = 0
+                    v.RequiresLineOfSight = false
+                end
+            end
+        end
+        
+        local function autoPickupMoneyLoop()
+            while autofarmConfig.autoPickupMoney do
+                task.wait()
+                for _, v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("ProximityPrompt") and v.Name == "ProximityPrompt" and autofarmConfig.autoPickupMoney then
+                        modifyMoneyPrompts()
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, v.Parent.CFrame.Position)
+                        SafeTeleport(v.Parent.CFrame.Position)
+                        task.wait(0.25)
+                        fireproximityprompt(v)
+                    end
+                end
+            end
+        end
+        
+        if autofarmConfig.autoPickupMoney then
+            modifyMoneyPrompts()
+            spawn(autoPickupMoneyLoop)
+        end
+    end
+    
+    -- Auto Sell Function
+    local function setupAutoSell()
+    
+            for _, itemName in pairs(items) do
+                while game.Players.LocalPlayer.Backpack:FindFirstChild(itemName) do
+                    if game.ReplicatedStorage:FindFirstChild("PawnRemote") then
+                        game.ReplicatedStorage.PawnRemote:FireServer(itemName)
+                    end
+                    task.wait(0.1)
+                end
+            end
+        end
+    end
+    
+    -- Auto Loot Trash Function
+    local function setupAutoLootTrash()
+        local function autoLootTrashLoop()
+            while autofarmConfig.autoLootTrash do
+                task.wait()
+                for i, v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("ProximityPrompt") and v.Name == "ProximityPrompt" and v.Parent.Name == "DumpsterPromt" then
+                        SafeTeleport(Vector3.new(v.Parent.CFrame.Position.X, v.Parent.CFrame.Position.Y + 0.2, v.Parent.CFrame.Position.Z + 3))
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, v.Parent.CFrame.Position)
+                        task.wait(0.3)
+                        for i = 1, 10 do
+                            fireproximityprompt(v)
+                        end
+                        task.wait(0.1)
+                        if not autofarmConfig.autoLootTrash then
+                            break
+                        end
+                    end
+                end
+            end
+        end
+        
+        if autofarmConfig.autoLootTrash then
+            spawn(autoLootTrashLoop)
+        end
+    end
+    
+    -- Main autofarm loop
+    local farmConnection
+    farmConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if autofarmConfig.enabled then
+            setupAutoPickupMoney()
+            setupAutoSell()
+            setupAutoLootTrash()
+        else
+            if farmConnection then
+                farmConnection:Disconnect()
+            end
+        end
+    end)
+end
+
+-- Setup autofarm
+pcall(setupAutofarm)
+
+-- Autofarm Toggle in Player Tab
+PlayerTab:CreateToggle({
+    Name = "Autofarm Uang",
+    CurrentValue = false,
+    Callback = function(Value)
+        autofarmConfig.enabled = Value
+        autofarmConfig.autoPickupMoney = Value
+    end,
+})
+
+-- Auto Sell Toggle in Player Tab
+PlayerTab:CreateToggle({
+    Name = "Auto Jual Item",
+    CurrentValue = false,
+    Callback = function(Value)
+        autofarmConfig.autoSell = Value
+    end,
+})
+
+-- Auto Loot Trash Toggle in Player Tab
+PlayerTab:CreateToggle({
+    Name = "Auto Loot Sampah",
+    CurrentValue = false,
+    Callback = function(Value)
+        autofarmConfig.autoLootTrash = Value
+    end,
+})
+
+-- Farm Distance Slider in Player Tab
+PlayerTab:CreateSlider({
+    Name = "Jarak Farm",
+    Range = {10, 200},
+    Increment = 10,
+    Suffix = "Stud",
+    CurrentValue = 50,
+    Callback = function(Value)
+        autofarmConfig.farmDistance = Value
     end,
 })
 
