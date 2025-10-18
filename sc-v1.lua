@@ -539,10 +539,52 @@ local function getClosestPlayer()
     return closestPlayer
 end
 
+-- Check available mouse movement methods
+local mouseMovementMethods = {
+    mousemoverel = mousemoverel ~= nil,
+    setmousepos = setmousepos ~= nil,
+    VirtualInputManager = true -- Always available in Roblox
+}
+
+-- Print available methods on startup
+print("Mouse Movement Methods Available:")
+for method, available in pairs(mouseMovementMethods) do
+    print("- " .. method .. ": " .. (available and "YES" or "NO"))
+end
+
 -- Mouse movement simulation function
 local function simulateMouseMovement(deltaX, deltaY)
-    -- Use VirtualInputManager to simulate mouse movement
-    VirtualInputManager:SendMouseMoveEvent(deltaX, deltaY)
+    -- Try multiple methods for mouse movement
+    
+    -- Method 1: mousemoverel (most common in exploit environments)
+    if mouseMovementMethods.mousemoverel then
+        local success = pcall(function()
+            mousemoverel(deltaX, deltaY)
+        end)
+        if success then
+            return true
+        end
+    end
+    
+    -- Method 2: setmousepos (direct position setting)
+    if mouseMovementMethods.setmousepos then
+        local success = pcall(function()
+            local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
+            local newMousePos = currentMousePos + Vector2.new(deltaX, deltaY)
+            setmousepos(newMousePos.X, newMousePos.Y)
+        end)
+        if success then
+            return true
+        end
+    end
+    
+    -- Method 3: VirtualInputManager (fallback)
+    local mouseDelta = Vector2.new(deltaX, deltaY)
+    local success = pcall(function()
+        VirtualInputManager:SendMouseMoveEvent(mouseDelta)
+    end)
+    
+    return success
 end
 
 local function aimAtTarget(targetPlayer)
@@ -566,8 +608,10 @@ local function aimAtTarget(targetPlayer)
         -- Apply smoothing for more natural movement
         local smoothedMovement = mouseMovement * aimbotConfig.smoothing
         
-        -- Only move if distance is significant enough
-        if smoothedMovement.Magnitude > 1 then
+        -- Only move if distance is significant enough and movement is reasonable
+        if smoothedMovement.Magnitude > 0.5 and smoothedMovement.Magnitude < 100 then
+            -- Debug output (can be removed later)
+            print("Moving mouse:", smoothedMovement.X, smoothedMovement.Y)
             simulateMouseMovement(smoothedMovement.X, smoothedMovement.Y)
         end
     else
@@ -620,7 +664,7 @@ local function toggleAimbot()
     aimbotConfig.enabled = not aimbotConfig.enabled
     if aimbotConfig.enabled then
         startAimbot()
-        print("Aimbot: ON")
+        print("Aimbot: ON - Mode:", aimbotConfig.crosshairTargeting and "Crosshair Targeting" or "Camera Targeting")
     else
         stopAimbot()
         print("Aimbot: OFF")
