@@ -447,7 +447,8 @@ local aimbotConfig = {
     teamCheck = true,
     visibleCheck = true,
     maxDistance = 1000,
-    crosshairTargeting = true -- Use crosshair targeting instead of camera targeting
+    crosshairTargeting = true, -- Use crosshair targeting instead of camera targeting
+    mouseSensitivity = 5 -- Sensitivity multiplier for mouse movement
 }
 
 -- Aimbot Variables
@@ -578,6 +579,12 @@ print("Initial Target Part:", aimbotConfig.targetPart)
 
 -- Mouse movement simulation function
 local function simulateMouseMovement(deltaX, deltaY)
+    -- Validate input parameters
+    if deltaX == nil or deltaY == nil then
+        print("Error: simulateMouseMovement received nil parameters")
+        return false
+    end
+    
     -- Ensure deltaX and deltaY are numbers
     deltaX = tonumber(deltaX) or 0
     deltaY = tonumber(deltaY) or 0
@@ -588,7 +595,7 @@ local function simulateMouseMovement(deltaX, deltaY)
     end
     
     -- Method 1: mousemoverel (most common in exploit environments)
-    if mousemoverel then
+    if mousemoverel and type(mousemoverel) == "function" then
         local success, err = pcall(function()
             mousemoverel(deltaX, deltaY)
         end)
@@ -600,11 +607,13 @@ local function simulateMouseMovement(deltaX, deltaY)
     end
     
     -- Method 2: setmousepos (direct position setting)
-    if setmousepos then
+    if setmousepos and type(setmousepos) == "function" then
         local success, err = pcall(function()
-            local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
-            local newMousePos = currentMousePos + Vector2.new(deltaX, deltaY)
-            setmousepos(newMousePos.X, newMousePos.Y)
+            if Mouse and Mouse.X and Mouse.Y then
+                local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
+                local newMousePos = currentMousePos + Vector2.new(deltaX, deltaY)
+                setmousepos(newMousePos.X, newMousePos.Y)
+            end
         end)
         if success then
             return true
@@ -614,16 +623,20 @@ local function simulateMouseMovement(deltaX, deltaY)
     end
     
     -- Method 3: VirtualInputManager (fallback)
-    local success, err = pcall(function()
-        local mouseDelta = Vector2.new(deltaX, deltaY)
-        VirtualInputManager:SendMouseMoveEvent(mouseDelta)
-    end)
-    
-    if not success then
-        print("VirtualInputManager failed:", err)
+    if VirtualInputManager and VirtualInputManager.SendMouseMoveEvent then
+        local success, err = pcall(function()
+            local mouseDelta = Vector2.new(deltaX, deltaY)
+            VirtualInputManager:SendMouseMoveEvent(mouseDelta)
+        end)
+        
+        if not success then
+            print("VirtualInputManager failed:", err)
+        end
+        
+        return success
     end
     
-    return success
+    return false
 end
 
 local function aimAtTarget(targetPlayer)
@@ -693,11 +706,29 @@ local function aimAtTarget(targetPlayer)
             return
         end
         
-        -- Only move if distance is significant enough and movement is reasonable
-        if smoothedMovement.Magnitude > 0.5 and smoothedMovement.Magnitude < 100 then
+        -- Apply mouse sensitivity and movement scaling
+        local sensitivity = tonumber(aimbotConfig.mouseSensitivity) or 5
+        local minMovement = 1 -- Minimum pixels to move
+        local maxMovement = 100 -- Maximum pixels to move in one frame
+        
+        if smoothedMovement.Magnitude > 0.01 then
+            -- Apply sensitivity multiplier
+            local sensitiveMovement = smoothedMovement * sensitivity
+            
+            -- Scale up small movements for better responsiveness
+            if sensitiveMovement.Magnitude < minMovement then
+                local scaleFactor = minMovement / sensitiveMovement.Magnitude
+                sensitiveMovement = sensitiveMovement * scaleFactor
+            end
+            
+            -- Limit maximum movement
+            if sensitiveMovement.Magnitude > maxMovement then
+                sensitiveMovement = sensitiveMovement.Unit * maxMovement
+            end
+            
             -- Ensure movement values are valid numbers
-            local moveX = tonumber(smoothedMovement.X) or 0
-            local moveY = tonumber(smoothedMovement.Y) or 0
+            local moveX = tonumber(sensitiveMovement.X) or 0
+            local moveY = tonumber(sensitiveMovement.Y) or 0
             
             -- Debug output with target part info
             print("Targeting", targetPartName, "(" .. targetPart.Name .. ") Moving mouse:", moveX, moveY)
@@ -872,6 +903,17 @@ CombatTab:CreateSlider({
     CurrentValue = 1000,
     Callback = function(Value)
         aimbotConfig.maxDistance = Value
+    end,
+})
+
+CombatTab:CreateSlider({
+    Name = "Mouse Sensitivity",
+    Range = {1, 20},
+    Increment = 1,
+    Suffix = "x",
+    CurrentValue = 5,
+    Callback = function(Value)
+        aimbotConfig.mouseSensitivity = Value
     end,
 })
 
