@@ -781,33 +781,33 @@ CombatTab:CreateSlider({
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 MiscTab:CreateParagraph({Title = "Teleport Locations", Content = "Teleport to important places in StreetLife"})
 
-MiscTab:CreateButton({
-   Name = "Teleport to Rap Station",
-   Callback = function()
-      SafeTeleport(Vector3.new(902.2052, 53.62046, -60.20349))
-   end,
-})
+-- MiscTab:CreateButton({
+--    Name = "Teleport to Rap Station",
+--    Callback = function()
+--       SafeTeleport(Vector3.new(902.2052, 53.62046, -60.20349))
+--    end,
+-- })
 
-MiscTab:CreateButton({
-   Name = "Teleport to Apartment 1",
-   Callback = function()
-      SafeTeleport(Vector3.new(552.0478, -44.42898, -187.2999))
-   end,
-})
+-- MiscTab:CreateButton({
+--    Name = "Teleport to Apartment 1",
+--    Callback = function()
+--       SafeTeleport(Vector3.new(552.0478, -44.42898, -187.2999))
+--    end,
+-- })
 
-MiscTab:CreateButton({
-   Name = "Teleport to Bank",
-   Callback = function()
-      SafeTeleport(Vector3.new(397.2554, 49.25748, 101.6725))
-   end,
-})
+-- MiscTab:CreateButton({
+--    Name = "Teleport to Bank",
+--    Callback = function()
+--       SafeTeleport(Vector3.new(397.2554, 49.25748, 101.6725))
+--    end,
+-- })
 
-MiscTab:CreateButton({
-   Name = "Teleport to The ICE",
-   Callback = function()
-      SafeTeleport(Vector3.new(185.0867, -89.2156, 150.2669))
-   end,
-})
+-- MiscTab:CreateButton({
+--    Name = "Teleport to The ICE",
+--    Callback = function()
+--       SafeTeleport(Vector3.new(185.0867, -89.2156, 150.2669))
+--    end,
+-- })
 
 -- Player Tab
 local PlayerTab = Window:CreateTab("Player", 4483362458)
@@ -846,6 +846,230 @@ PlayerTab:CreateToggle({
     CurrentValue = false,
     Callback = function(Value)
         doubleDamageConfig.enabled = Value
+    end,
+})
+
+-- Max Health Configuration
+local maxHealthConfig = {
+    enabled = false,
+    healthValue = 100
+}
+
+-- Max Health Functions
+local function setupMaxHealth()
+    local function setMaxHealth()
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            local humanoid = char.Humanoid
+            humanoid.MaxHealth = maxHealthConfig.healthValue
+            humanoid.Health = maxHealthConfig.healthValue
+        end
+    end
+    
+    -- Set max health when character spawns
+    game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+        if maxHealthConfig.enabled then
+            wait(1) -- Wait for character to fully load
+            setMaxHealth()
+        end
+    end)
+    
+    -- Set max health for current character
+    if game.Players.LocalPlayer.Character then
+        setMaxHealth()
+    end
+    
+    -- Monitor health and restore if damaged
+    local healthConnection
+    healthConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if maxHealthConfig.enabled then
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                local humanoid = char.Humanoid
+                if humanoid.Health < maxHealthConfig.healthValue then
+                    humanoid.Health = maxHealthConfig.healthValue
+                end
+                if humanoid.MaxHealth ~= maxHealthConfig.healthValue then
+                    humanoid.MaxHealth = maxHealthConfig.healthValue
+                end
+            end
+        else
+            if healthConnection then
+                healthConnection:Disconnect()
+            end
+        end
+    end)
+end
+
+-- Setup max health
+pcall(setupMaxHealth)
+
+-- Max Health Toggle in Player Tab
+PlayerTab:CreateToggle({
+    Name = "Max Health",
+    CurrentValue = false,
+    Callback = function(Value)
+        maxHealthConfig.enabled = Value
+        if Value then
+            -- Set health immediately when enabled
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.MaxHealth = maxHealthConfig.healthValue
+                char.Humanoid.Health = maxHealthConfig.healthValue
+            end
+        end
+    end,
+})
+
+-- Max Health Slider in Player Tab
+PlayerTab:CreateSlider({
+    Name = "Max Health Value",
+    Range = {50, 1000},
+    Increment = 10,
+    Suffix = "HP",
+    CurrentValue = 100,
+    Callback = function(Value)
+        maxHealthConfig.healthValue = Value
+        if maxHealthConfig.enabled then
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.MaxHealth = Value
+                char.Humanoid.Health = Value
+            end
+        end
+    end,
+})
+
+-- Loot Corpses Configuration
+local lootCorpsesConfig = {
+    enabled = false,
+    lootDistance = 50,
+    lootDelay = 0.5
+}
+
+-- Loot Corpses Functions
+local function setupLootCorpses()
+    local lastLootTime = 0
+    
+    local function findCorpses()
+        local corpses = {}
+        local playerPos = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
+        if not playerPos then return corpses end
+        
+        -- Look for dead players in workspace
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") and obj.Name == "Character" then
+                local humanoid = obj:FindFirstChild("Humanoid")
+                local rootPart = obj:FindFirstChild("HumanoidRootPart")
+                
+                if humanoid and rootPart and humanoid.Health <= 0 then
+                    local distance = (rootPart.Position - playerPos.Position).Magnitude
+                    if distance <= lootCorpsesConfig.lootDistance then
+                        table.insert(corpses, obj)
+                    end
+                end
+            end
+        end
+        
+        return corpses
+    end
+    
+    local function lootCorpse(corpse)
+        if not corpse or not corpse:FindFirstChild("HumanoidRootPart") then return end
+        
+        local rootPart = corpse.HumanoidRootPart
+        local playerPos = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
+        if not playerPos then return end
+        
+        -- Teleport to corpse
+        local tween = TweenService:Create(playerPos, TweenInfo.new(0.3, Enum.EasingStyle.Linear), {CFrame = rootPart.CFrame})
+        tween:Play()
+        
+        -- Look for lootable items
+        for _, obj in pairs(corpse:GetDescendants()) do
+            if obj:IsA("Tool") or obj:IsA("Part") then
+                -- Try to pick up the item
+                if obj:IsA("Tool") then
+                    obj.Parent = game.Players.LocalPlayer.Backpack
+                elseif obj:IsA("Part") and obj.Name:lower():find("money") or obj.Name:lower():find("cash") or obj.Name:lower():find("coin") then
+                    -- Try to collect money/cash
+                    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 0)
+                    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 1)
+                end
+            end
+        end
+        
+        -- Look for dropped items near corpse
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("Tool") or obj:IsA("Part") then
+                local distance = (obj.Position - rootPart.Position).Magnitude
+                if distance <= 10 then
+                    if obj:IsA("Tool") then
+                        obj.Parent = game.Players.LocalPlayer.Backpack
+                    elseif obj:IsA("Part") and (obj.Name:lower():find("money") or obj.Name:lower():find("cash") or obj.Name:lower():find("coin")) then
+                        firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 0)
+                        firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 1)
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Main loot loop
+    local lootConnection
+    lootConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if lootCorpsesConfig.enabled then
+            local currentTime = tick()
+            if currentTime - lastLootTime >= lootCorpsesConfig.lootDelay then
+                local corpses = findCorpses()
+                if #corpses > 0 then
+                    lootCorpse(corpses[1]) -- Loot the first corpse found
+                    lastLootTime = currentTime
+                end
+            end
+        else
+            if lootConnection then
+                lootConnection:Disconnect()
+            end
+        end
+    end)
+end
+
+-- Setup loot corpses
+pcall(setupLootCorpses)
+
+-- Loot Corpses Toggle in Player Tab
+PlayerTab:CreateToggle({
+    Name = "Auto Loot Corpses",
+    CurrentValue = false,
+    Callback = function(Value)
+        lootCorpsesConfig.enabled = Value
+    end,
+})
+
+-- Loot Distance Slider in Player Tab
+PlayerTab:CreateSlider({
+    Name = "Loot Distance",
+    Range = {10, 200},
+    Increment = 10,
+    Suffix = "Studs",
+    CurrentValue = 50,
+    Callback = function(Value)
+        lootCorpsesConfig.lootDistance = Value
+    end,
+})
+
+-- Loot Delay Slider in Player Tab
+PlayerTab:CreateSlider({
+    Name = "Loot Delay",
+    Range = {0.1, 2},
+    Increment = 0.1,
+    Suffix = "Seconds",
+    CurrentValue = 0.5,
+    Callback = function(Value)
+        lootCorpsesConfig.lootDelay = Value
     end,
 })
 
