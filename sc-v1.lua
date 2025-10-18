@@ -446,13 +446,15 @@ local aimbotConfig = {
     targetPart = "Head", -- Head, Torso, HumanoidRootPart
     teamCheck = true,
     visibleCheck = true,
-    maxDistance = 1000
+    maxDistance = 1000,
+    crosshairTargeting = true -- Use crosshair targeting instead of camera targeting
 }
 
 -- Aimbot Variables
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
@@ -487,14 +489,22 @@ local function getClosestPlayer()
                         local raycastResult = workspace:Raycast(cameraPosition, (targetPart.Position - cameraPosition).Unit * distance, raycastParams)
                         
                         if raycastResult and raycastResult.Instance:IsDescendantOf(character) then
-                            -- Calculate FOV
                             local screenPosition, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
                             if onScreen then
-                                local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                                local distanceFromCenter = (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude
+                                local distanceFromTarget
                                 
-                                if distanceFromCenter < closestDistance then
-                                    closestDistance = distanceFromCenter
+                                if aimbotConfig.crosshairTargeting then
+                                    -- Calculate distance from current mouse position
+                                    local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
+                                    distanceFromTarget = (Vector2.new(screenPosition.X, screenPosition.Y) - currentMousePos).Magnitude
+                                else
+                                    -- Calculate distance from screen center
+                                    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                                    distanceFromTarget = (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude
+                                end
+                                
+                                if distanceFromTarget < closestDistance then
+                                    closestDistance = distanceFromTarget
                                     closestPlayer = player
                                 end
                             end
@@ -503,11 +513,20 @@ local function getClosestPlayer()
                         -- No visibility check
                         local screenPosition, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
                         if onScreen then
-                            local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                            local distanceFromCenter = (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude
+                            local distanceFromTarget
                             
-                            if distanceFromCenter < closestDistance then
-                                closestDistance = distanceFromCenter
+                            if aimbotConfig.crosshairTargeting then
+                                -- Calculate distance from current mouse position
+                                local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
+                                distanceFromTarget = (Vector2.new(screenPosition.X, screenPosition.Y) - currentMousePos).Magnitude
+                            else
+                                -- Calculate distance from screen center
+                                local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                                distanceFromTarget = (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude
+                            end
+                            
+                            if distanceFromTarget < closestDistance then
+                                closestDistance = distanceFromTarget
                                 closestPlayer = player
                             end
                         end
@@ -520,27 +539,55 @@ local function getClosestPlayer()
     return closestPlayer
 end
 
+-- Mouse movement simulation function
+local function simulateMouseMovement(deltaX, deltaY)
+    -- Use VirtualInputManager to simulate mouse movement
+    VirtualInputManager:SendMouseMoveEvent(deltaX, deltaY)
+end
+
 local function aimAtTarget(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then return end
     
     local targetPart = targetPlayer.Character:FindFirstChild(aimbotConfig.targetPart)
     if not targetPart then return end
     
-    local cameraPosition = Camera.CFrame.Position
-    local targetPosition = targetPart.Position
-    
-    -- Calculate the direction to the target
-    local direction = (targetPosition - cameraPosition).Unit
-    
-    -- Apply smoothing
-    local currentLookDirection = Camera.CFrame.LookVector
-    local smoothedDirection = currentLookDirection:Lerp(direction, aimbotConfig.smoothing)
-    
-    -- Create new CFrame
-    local newCFrame = CFrame.lookAt(cameraPosition, cameraPosition + smoothedDirection)
-    
-    -- Apply the new camera rotation
-    Camera.CFrame = newCFrame
+    if aimbotConfig.crosshairTargeting then
+        -- Crosshair targeting mode (for unlock cursor)
+        local targetPosition, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+        if not onScreen then return end
+        
+        -- Get current mouse position
+        local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
+        local targetScreenPos = Vector2.new(targetPosition.X, targetPosition.Y)
+        
+        -- Calculate mouse movement needed
+        local mouseMovement = targetScreenPos - currentMousePos
+        
+        -- Apply smoothing for more natural movement
+        local smoothedMovement = mouseMovement * aimbotConfig.smoothing
+        
+        -- Only move if distance is significant enough
+        if smoothedMovement.Magnitude > 1 then
+            simulateMouseMovement(smoothedMovement.X, smoothedMovement.Y)
+        end
+    else
+        -- Camera targeting mode (for lock cursor)
+        local cameraPosition = Camera.CFrame.Position
+        local targetPosition = targetPart.Position
+        
+        -- Calculate the direction to the target
+        local direction = (targetPosition - cameraPosition).Unit
+        
+        -- Apply smoothing
+        local currentLookDirection = Camera.CFrame.LookVector
+        local smoothedDirection = currentLookDirection:Lerp(direction, aimbotConfig.smoothing)
+        
+        -- Create new CFrame
+        local newCFrame = CFrame.lookAt(cameraPosition, cameraPosition + smoothedDirection)
+        
+        -- Apply the new camera rotation
+        Camera.CFrame = newCFrame
+    end
 end
 
 -- Aimbot Main Loop
@@ -651,6 +698,14 @@ CombatTab:CreateToggle({
     CurrentValue = true,
     Callback = function(Value)
         aimbotConfig.visibleCheck = Value
+    end,
+})
+
+CombatTab:CreateToggle({
+    Name = "Crosshair Targeting",
+    CurrentValue = true,
+    Callback = function(Value)
+        aimbotConfig.crosshairTargeting = Value
     end,
 })
 
