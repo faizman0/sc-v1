@@ -1073,4 +1073,153 @@ PlayerTab:CreateSlider({
     end,
 })
 
+-- Money Configuration
+local moneyConfig = {
+    enabled = false,
+    moneyAmount = 999999,
+    unlimited = false
+}
+
+-- Money Functions
+local function setupMoney()
+    local function findMoneyGui()
+        -- Look for money GUI in various locations
+        local locations = {
+            game.Players.LocalPlayer.PlayerGui,
+            game.CoreGui,
+            game.StarterGui
+        }
+        
+        for _, location in pairs(locations) do
+            if location then
+                for _, gui in pairs(location:GetDescendants()) do
+                    if gui:IsA("TextLabel") or gui:IsA("TextButton") or gui:IsA("Frame") then
+                        local text = gui.Text or gui.Name or ""
+                        if text:find("$") or text:find("money") or text:find("cash") or text:find("dollar") or text:find("coin") then
+                            return gui
+                        end
+                    end
+                end
+            end
+        end
+        
+        return nil
+    end
+    
+    local function setMoney(value)
+        -- Try to find and modify money display
+        local moneyGui = findMoneyGui()
+        if moneyGui then
+            if moneyGui:IsA("TextLabel") or moneyGui:IsA("TextButton") then
+                moneyGui.Text = "$" .. tostring(value)
+            end
+        end
+        
+        -- Try to modify player stats
+        local player = game.Players.LocalPlayer
+        if player:FindFirstChild("leaderstats") then
+            for _, stat in pairs(player.leaderstats:GetChildren()) do
+                if stat.Name:lower():find("money") or stat.Name:lower():find("cash") or stat.Name:lower():find("dollar") then
+                    if stat:IsA("IntValue") or stat:IsA("NumberValue") then
+                        stat.Value = value
+                    end
+                end
+            end
+        end
+        
+        -- Try to modify backpack money
+        if player:FindFirstChild("Backpack") then
+            for _, tool in pairs(player.Backpack:GetChildren()) do
+                if tool.Name:lower():find("money") or tool.Name:lower():find("cash") then
+                    if tool:FindFirstChild("Value") then
+                        tool.Value.Value = value
+                    end
+                end
+            end
+        end
+        
+        -- Try to modify character money
+        if player.Character then
+            for _, obj in pairs(player.Character:GetDescendants()) do
+                if obj.Name:lower():find("money") or obj.Name:lower():find("cash") then
+                    if obj:IsA("IntValue") or obj:IsA("NumberValue") then
+                        obj.Value = value
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Money monitoring loop
+    local moneyConnection
+    moneyConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if moneyConfig.enabled then
+            if moneyConfig.unlimited then
+                setMoney(999999999)
+            else
+                setMoney(moneyConfig.moneyAmount)
+            end
+        else
+            if moneyConnection then
+                moneyConnection:Disconnect()
+            end
+        end
+    end)
+end
+
+-- Setup money
+pcall(setupMoney)
+
+-- Money Toggle in Player Tab
+PlayerTab:CreateToggle({
+    Name = "Unlimited Money",
+    CurrentValue = false,
+    Callback = function(Value)
+        moneyConfig.enabled = Value
+        moneyConfig.unlimited = Value
+    end,
+})
+
+-- Custom Money Toggle in Player Tab
+PlayerTab:CreateToggle({
+    Name = "Custom Money",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then
+            moneyConfig.enabled = Value
+            moneyConfig.unlimited = false
+        else
+            moneyConfig.enabled = false
+        end
+    end,
+})
+
+-- Money Amount Slider in Player Tab
+PlayerTab:CreateSlider({
+    Name = "Money Amount",
+    Range = {1000, 999999999},
+    Increment = 1000,
+    Suffix = "$",
+    CurrentValue = 999999,
+    Callback = function(Value)
+        moneyConfig.moneyAmount = Value
+        if moneyConfig.enabled and not moneyConfig.unlimited then
+            -- Apply money immediately when slider changes
+            local function setMoney(value)
+                local player = game.Players.LocalPlayer
+                if player:FindFirstChild("leaderstats") then
+                    for _, stat in pairs(player.leaderstats:GetChildren()) do
+                        if stat.Name:lower():find("money") or stat.Name:lower():find("cash") or stat.Name:lower():find("dollar") then
+                            if stat:IsA("IntValue") or stat:IsA("NumberValue") then
+                                stat.Value = value
+                            end
+                        end
+                    end
+                end
+            end
+            setMoney(Value)
+        end
+    end,
+})
+
 -- ESP Tab (still empty)
