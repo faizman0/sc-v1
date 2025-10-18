@@ -940,18 +940,19 @@ PlayerTab:CreateSlider({
     end,
 })
 
--- Loot Corpses Configuration
-local lootCorpsesConfig = {
+-- Rob Corpses Configuration (Bypass Payment System)
+local robCorpsesConfig = {
     enabled = false,
-    lootDistance = 50,
-    lootDelay = 0.5
+    robDistance = 50,
+    robDelay = 0.5,
+    bypassPayment = true
 }
 
--- Loot Corpses Functions
-local function setupLootCorpses()
-    local lastLootTime = 0
+-- Rob Corpses Functions (Free Robbing System)
+local function setupRobCorpses()
+    local lastRobTime = 0
     
-    local function findCorpses()
+    local function findDeadPlayers()
         local corpses = {}
         local playerPos = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         
@@ -965,7 +966,7 @@ local function setupLootCorpses()
                 
                 if humanoid and rootPart and humanoid.Health <= 0 then
                     local distance = (rootPart.Position - playerPos.Position).Magnitude
-                    if distance <= lootCorpsesConfig.lootDistance then
+                    if distance <= robCorpsesConfig.robDistance then
                         table.insert(corpses, obj)
                     end
                 end
@@ -975,7 +976,48 @@ local function setupLootCorpses()
         return corpses
     end
     
-    local function lootCorpse(corpse)
+    local function bypassRobberyPayment()
+        -- Hook into robbery payment systems
+        local function hookRobberyEvents()
+            -- Look for robbery-related RemoteEvents
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("RemoteEvent") then
+                    local name = obj.Name:lower()
+                    if name:find("rob") or name:find("loot") or name:find("steal") or name:find("corpse") then
+                        local originalFire = obj.FireServer
+                        obj.FireServer = function(self, ...)
+                            local args = {...}
+                            
+                            if robCorpsesConfig.bypassPayment then
+                                -- Modify arguments to bypass payment
+                                for i, arg in pairs(args) do
+                                    if type(arg) == "table" then
+                                        -- Remove payment requirements
+                                        if arg.payment or arg.pay or arg.cost or arg.price then
+                                            arg.payment = 0
+                                            arg.pay = 0
+                                            arg.cost = 0
+                                            arg.price = 0
+                                        end
+                                        -- Set as free robbery
+                                        arg.free = true
+                                        arg.premium = true
+                                        arg.vip = true
+                                    end
+                                end
+                            end
+                            
+                            return originalFire(self, unpack(args))
+                        end
+                    end
+                end
+            end
+        end
+        
+        hookRobberyEvents()
+    end
+    
+    local function robCorpse(corpse)
         if not corpse or not corpse:FindFirstChild("HumanoidRootPart") then return end
         
         local rootPart = corpse.HumanoidRootPart
@@ -983,242 +1025,105 @@ local function setupLootCorpses()
         
         if not playerPos then return end
         
-        -- Teleport to corpse
+        -- Teleport to corpse for robbery
         local tween = TweenService:Create(playerPos, TweenInfo.new(0.3, Enum.EasingStyle.Linear), {CFrame = rootPart.CFrame})
         tween:Play()
         
-        -- Look for lootable items
+        -- Bypass payment system and rob directly
+        bypassRobberyPayment()
+        
+        -- Look for items to rob
         for _, obj in pairs(corpse:GetDescendants()) do
             if obj:IsA("Tool") or obj:IsA("Part") then
-                -- Try to pick up the item
+                -- Rob weapons/tools
                 if obj:IsA("Tool") then
                     obj.Parent = game.Players.LocalPlayer.Backpack
-                elseif obj:IsA("Part") and obj.Name:lower():find("money") or obj.Name:lower():find("cash") or obj.Name:lower():find("coin") then
-                    -- Try to collect money/cash
+                elseif obj:IsA("Part") and (obj.Name:lower():find("money") or obj.Name:lower():find("cash") or obj.Name:lower():find("coin") or obj.Name:lower():find("wallet")) then
+                    -- Rob money/cash directly
                     firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 0)
                     firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 1)
                 end
             end
         end
         
-        -- Look for dropped items near corpse
+        -- Rob dropped items near corpse
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("Tool") or obj:IsA("Part") then
                 local distance = (obj.Position - rootPart.Position).Magnitude
                 if distance <= 10 then
                     if obj:IsA("Tool") then
                         obj.Parent = game.Players.LocalPlayer.Backpack
-                    elseif obj:IsA("Part") and (obj.Name:lower():find("money") or obj.Name:lower():find("cash") or obj.Name:lower():find("coin")) then
+                    elseif obj:IsA("Part") and (obj.Name:lower():find("money") or obj.Name:lower():find("cash") or obj.Name:lower():find("coin") or obj.Name:lower():find("wallet")) then
                         firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 0)
                         firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, obj, 1)
                     end
                 end
             end
         end
+        
+        -- Try to trigger robbery events with bypassed payment
+        local robberyEvents = {"RobCorpse", "LootCorpse", "StealCorpse", "RobPlayer", "LootPlayer"}
+        for _, eventName in pairs(robberyEvents) do
+            local event = workspace:FindFirstChild(eventName) or game.ReplicatedStorage:FindFirstChild(eventName)
+            if event and event:IsA("RemoteEvent") then
+                event:FireServer(corpse, {free = true, premium = true, payment = 0})
+            end
+        end
     end
     
-    -- Main loot loop
-    local lootConnection
-    lootConnection = game:GetService("RunService").Heartbeat:Connect(function()
-        if lootCorpsesConfig.enabled then
+    -- Main robbery loop
+    local robConnection
+    robConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if robCorpsesConfig.enabled then
             local currentTime = tick()
-            if currentTime - lastLootTime >= lootCorpsesConfig.lootDelay then
-                local corpses = findCorpses()
+            if currentTime - lastRobTime >= robCorpsesConfig.robDelay then
+                local corpses = findDeadPlayers()
                 if #corpses > 0 then
-                    lootCorpse(corpses[1]) -- Loot the first corpse found
-                    lastLootTime = currentTime
+                    robCorpse(corpses[1]) -- Rob the first corpse found
+                    lastRobTime = currentTime
                 end
             end
         else
-            if lootConnection then
-                lootConnection:Disconnect()
+            if robConnection then
+                robConnection:Disconnect()
             end
         end
     end)
 end
 
--- Setup loot corpses
-pcall(setupLootCorpses)
+-- Setup rob corpses
+pcall(setupRobCorpses)
 
--- Loot Corpses Toggle in Player Tab
+-- Rob Corpses Toggle in Player Tab
 PlayerTab:CreateToggle({
-    Name = "Auto Loot Corpses",
+    Name = "Free Rob Corpses",
     CurrentValue = false,
     Callback = function(Value)
-        lootCorpsesConfig.enabled = Value
+        robCorpsesConfig.enabled = Value
     end,
 })
 
--- Loot Distance Slider in Player Tab
+-- Rob Distance Slider in Player Tab
 PlayerTab:CreateSlider({
-    Name = "Loot Distance",
+    Name = "Rob Distance",
     Range = {10, 200},
     Increment = 10,
     Suffix = "Studs",
     CurrentValue = 50,
     Callback = function(Value)
-        lootCorpsesConfig.lootDistance = Value
+        robCorpsesConfig.robDistance = Value
     end,
 })
 
--- Loot Delay Slider in Player Tab
+-- Rob Delay Slider in Player Tab
 PlayerTab:CreateSlider({
-    Name = "Loot Delay",
+    Name = "Rob Delay",
     Range = {0.1, 2},
     Increment = 0.1,
     Suffix = "Seconds",
     CurrentValue = 0.5,
     Callback = function(Value)
-        lootCorpsesConfig.lootDelay = Value
-    end,
-})
-
--- Money Configuration
-local moneyConfig = {
-    enabled = false,
-    moneyAmount = 999999,
-    unlimited = false
-}
-
--- Money Functions
-local function setupMoney()
-    local function findMoneyGui()
-        -- Look for money GUI in various locations
-        local locations = {
-            game.Players.LocalPlayer.PlayerGui,
-            game.CoreGui,
-            game.StarterGui
-        }
-        
-        for _, location in pairs(locations) do
-            if location then
-                for _, gui in pairs(location:GetDescendants()) do
-                    if gui:IsA("TextLabel") or gui:IsA("TextButton") or gui:IsA("Frame") then
-                        local text = gui.Text or gui.Name or ""
-                        if text:find("$") or text:find("money") or text:find("cash") or text:find("dollar") or text:find("coin") then
-                            return gui
-                        end
-                    end
-                end
-            end
-        end
-        
-        return nil
-    end
-    
-    local function setMoney(value)
-        -- Try to find and modify money display
-        local moneyGui = findMoneyGui()
-        if moneyGui then
-            if moneyGui:IsA("TextLabel") or moneyGui:IsA("TextButton") then
-                moneyGui.Text = "$" .. tostring(value)
-            end
-        end
-        
-        -- Try to modify player stats
-        local player = game.Players.LocalPlayer
-        if player:FindFirstChild("leaderstats") then
-            for _, stat in pairs(player.leaderstats:GetChildren()) do
-                if stat.Name:lower():find("money") or stat.Name:lower():find("cash") or stat.Name:lower():find("dollar") then
-                    if stat:IsA("IntValue") or stat:IsA("NumberValue") then
-                        stat.Value = value
-                    end
-                end
-            end
-        end
-        
-        -- Try to modify backpack money
-        if player:FindFirstChild("Backpack") then
-            for _, tool in pairs(player.Backpack:GetChildren()) do
-                if tool.Name:lower():find("money") or tool.Name:lower():find("cash") then
-                    if tool:FindFirstChild("Value") then
-                        tool.Value.Value = value
-                    end
-                end
-            end
-        end
-        
-        -- Try to modify character money
-        if player.Character then
-            for _, obj in pairs(player.Character:GetDescendants()) do
-                if obj.Name:lower():find("money") or obj.Name:lower():find("cash") then
-                    if obj:IsA("IntValue") or obj:IsA("NumberValue") then
-                        obj.Value = value
-                    end
-                end
-            end
-        end
-    end
-    
-    -- Money monitoring loop
-    local moneyConnection
-    moneyConnection = game:GetService("RunService").Heartbeat:Connect(function()
-        if moneyConfig.enabled then
-            if moneyConfig.unlimited then
-                setMoney(999999999)
-            else
-                setMoney(moneyConfig.moneyAmount)
-            end
-        else
-            if moneyConnection then
-                moneyConnection:Disconnect()
-            end
-        end
-    end)
-end
-
--- Setup money
-pcall(setupMoney)
-
--- Money Toggle in Player Tab
-PlayerTab:CreateToggle({
-    Name = "Unlimited Money",
-    CurrentValue = false,
-    Callback = function(Value)
-        moneyConfig.enabled = Value
-        moneyConfig.unlimited = Value
-    end,
-})
-
--- Custom Money Toggle in Player Tab
-PlayerTab:CreateToggle({
-    Name = "Custom Money",
-    CurrentValue = false,
-    Callback = function(Value)
-        if Value then
-            moneyConfig.enabled = Value
-            moneyConfig.unlimited = false
-        else
-            moneyConfig.enabled = false
-        end
-    end,
-})
-
--- Money Amount Slider in Player Tab
-PlayerTab:CreateSlider({
-    Name = "Money Amount",
-    Range = {1000, 999999999},
-    Increment = 1000,
-    Suffix = "$",
-    CurrentValue = 999999,
-    Callback = function(Value)
-        moneyConfig.moneyAmount = Value
-        if moneyConfig.enabled and not moneyConfig.unlimited then
-            -- Apply money immediately when slider changes
-            local function setMoney(value)
-                local player = game.Players.LocalPlayer
-                if player:FindFirstChild("leaderstats") then
-                    for _, stat in pairs(player.leaderstats:GetChildren()) do
-                        if stat.Name:lower():find("money") or stat.Name:lower():find("cash") or stat.Name:lower():find("dollar") then
-                            if stat:IsA("IntValue") or stat:IsA("NumberValue") then
-                                stat.Value = value
-                            end
-                        end
-                    end
-                end
-            end
-            setMoney(Value)
-        end
+        robCorpsesConfig.robDelay = Value
     end,
 })
 
