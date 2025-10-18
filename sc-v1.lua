@@ -578,45 +578,66 @@ print("Initial Target Part:", aimbotConfig.targetPart)
 
 -- Mouse movement simulation function
 local function simulateMouseMovement(deltaX, deltaY)
-    -- Try multiple methods for mouse movement
+    -- Ensure deltaX and deltaY are numbers
+    deltaX = tonumber(deltaX) or 0
+    deltaY = tonumber(deltaY) or 0
+    
+    -- Skip if movement is too small
+    if math.abs(deltaX) < 0.1 and math.abs(deltaY) < 0.1 then
+        return false
+    end
     
     -- Method 1: mousemoverel (most common in exploit environments)
-    if mouseMovementMethods.mousemoverel then
-        local success = pcall(function()
+    if mousemoverel then
+        local success, err = pcall(function()
             mousemoverel(deltaX, deltaY)
         end)
         if success then
             return true
+        else
+            print("mousemoverel failed:", err)
         end
     end
     
     -- Method 2: setmousepos (direct position setting)
-    if mouseMovementMethods.setmousepos then
-        local success = pcall(function()
+    if setmousepos then
+        local success, err = pcall(function()
             local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
             local newMousePos = currentMousePos + Vector2.new(deltaX, deltaY)
             setmousepos(newMousePos.X, newMousePos.Y)
         end)
         if success then
             return true
+        else
+            print("setmousepos failed:", err)
         end
     end
     
     -- Method 3: VirtualInputManager (fallback)
-    local mouseDelta = Vector2.new(deltaX, deltaY)
-    local success = pcall(function()
+    local success, err = pcall(function()
+        local mouseDelta = Vector2.new(deltaX, deltaY)
         VirtualInputManager:SendMouseMoveEvent(mouseDelta)
     end)
+    
+    if not success then
+        print("VirtualInputManager failed:", err)
+    end
     
     return success
 end
 
 local function aimAtTarget(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then return end
+    if not targetPlayer or not targetPlayer.Character then 
+        return 
+    end
+    
+    local character = targetPlayer.Character
+    if not character then 
+        return 
+    end
     
     -- Find the correct target part
     local targetPart = nil
-    local character = targetPlayer.Character
     
     -- Ensure targetPart is a string
     local targetPartName = tostring(aimbotConfig.targetPart)
@@ -650,17 +671,37 @@ local function aimAtTarget(targetPlayer)
         local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
         local targetScreenPos = Vector2.new(targetPosition.X, targetPosition.Y)
         
+        -- Validate positions
+        if not currentMousePos or not targetScreenPos then
+            return
+        end
+        
         -- Calculate mouse movement needed
         local mouseMovement = targetScreenPos - currentMousePos
         
+        -- Validate movement vector
+        if not mouseMovement then
+            return
+        end
+        
         -- Apply smoothing for more natural movement
-        local smoothedMovement = mouseMovement * aimbotConfig.smoothing
+        local smoothing = tonumber(aimbotConfig.smoothing) or 0.1
+        local smoothedMovement = mouseMovement * smoothing
+        
+        -- Validate smoothed movement
+        if not smoothedMovement then
+            return
+        end
         
         -- Only move if distance is significant enough and movement is reasonable
         if smoothedMovement.Magnitude > 0.5 and smoothedMovement.Magnitude < 100 then
+            -- Ensure movement values are valid numbers
+            local moveX = tonumber(smoothedMovement.X) or 0
+            local moveY = tonumber(smoothedMovement.Y) or 0
+            
             -- Debug output with target part info
-            print("Targeting", targetPartName, "(" .. targetPart.Name .. ") Moving mouse:", smoothedMovement.X, smoothedMovement.Y)
-            simulateMouseMovement(smoothedMovement.X, smoothedMovement.Y)
+            print("Targeting", targetPartName, "(" .. targetPart.Name .. ") Moving mouse:", moveX, moveY)
+            simulateMouseMovement(moveX, moveY)
         end
     else
         -- Camera targeting mode (for lock cursor)
