@@ -473,7 +473,21 @@ local function getClosestPlayer()
             end
             
             local character = player.Character
-            local targetPart = character:FindFirstChild(aimbotConfig.targetPart)
+            local targetPart = nil
+            
+            -- Find the correct target part
+            if aimbotConfig.targetPart == "Head" then
+                targetPart = character:FindFirstChild("Head")
+            elseif aimbotConfig.targetPart == "Torso" then
+                targetPart = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+            elseif aimbotConfig.targetPart == "HumanoidRootPart" then
+                targetPart = character:FindFirstChild("HumanoidRootPart")
+            end
+            
+            -- Fallback to HumanoidRootPart if target part not found
+            if not targetPart then
+                targetPart = character:FindFirstChild("HumanoidRootPart")
+            end
             
             if targetPart then
                 local distance = (targetPart.Position - cameraPosition).Magnitude
@@ -590,8 +604,26 @@ end
 local function aimAtTarget(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then return end
     
-    local targetPart = targetPlayer.Character:FindFirstChild(aimbotConfig.targetPart)
-    if not targetPart then return end
+    -- Find the correct target part
+    local targetPart = nil
+    local character = targetPlayer.Character
+    
+    -- Try to find the specified target part
+    if aimbotConfig.targetPart == "Head" then
+        targetPart = character:FindFirstChild("Head")
+    elseif aimbotConfig.targetPart == "Torso" then
+        targetPart = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+    elseif aimbotConfig.targetPart == "HumanoidRootPart" then
+        targetPart = character:FindFirstChild("HumanoidRootPart")
+    end
+    
+    -- Fallback to HumanoidRootPart if target part not found
+    if not targetPart then
+        targetPart = character:FindFirstChild("HumanoidRootPart")
+        if not targetPart then
+            return
+        end
+    end
     
     if aimbotConfig.crosshairTargeting then
         -- Crosshair targeting mode (for unlock cursor)
@@ -610,8 +642,8 @@ local function aimAtTarget(targetPlayer)
         
         -- Only move if distance is significant enough and movement is reasonable
         if smoothedMovement.Magnitude > 0.5 and smoothedMovement.Magnitude < 100 then
-            -- Debug output (can be removed later)
-            print("Moving mouse:", smoothedMovement.X, smoothedMovement.Y)
+            -- Debug output with target part info
+            print("Targeting", aimbotConfig.targetPart, "Moving mouse:", smoothedMovement.X, smoothedMovement.Y)
             simulateMouseMovement(smoothedMovement.X, smoothedMovement.Y)
         end
     else
@@ -658,6 +690,36 @@ local function stopAimbot()
     end
 end
 
+-- Function to validate target part availability
+local function validateTargetPart()
+    local validParts = {}
+    local samplePlayer = nil
+    
+    -- Find a sample player to check available parts
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            samplePlayer = player
+            break
+        end
+    end
+    
+    if samplePlayer and samplePlayer.Character then
+        local character = samplePlayer.Character
+        if character:FindFirstChild("Head") then
+            table.insert(validParts, "Head")
+        end
+        if character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso") then
+            table.insert(validParts, "Torso")
+        end
+        if character:FindFirstChild("HumanoidRootPart") then
+            table.insert(validParts, "HumanoidRootPart")
+        end
+    end
+    
+    print("Available target parts:", table.concat(validParts, ", "))
+    return validParts
+end
+
 -- Z Key Toggle for Aimbot
 local aimbotToggleUI = nil
 local function toggleAimbot()
@@ -665,6 +727,8 @@ local function toggleAimbot()
     if aimbotConfig.enabled then
         startAimbot()
         print("Aimbot: ON - Mode:", aimbotConfig.crosshairTargeting and "Crosshair Targeting" or "Camera Targeting")
+        print("Target Part:", aimbotConfig.targetPart)
+        validateTargetPart()
     else
         stopAimbot()
         print("Aimbot: OFF")
@@ -726,6 +790,7 @@ CombatTab:CreateDropdown({
     CurrentOption = "Head",
     Callback = function(Option)
         aimbotConfig.targetPart = Option
+        print("Target Part changed to:", Option)
     end,
 })
 
