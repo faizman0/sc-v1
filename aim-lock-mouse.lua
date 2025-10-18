@@ -446,16 +446,13 @@ local aimbotConfig = {
     targetPart = "Head", -- Head, Torso, HumanoidRootPart
     teamCheck = true,
     visibleCheck = true,
-    maxDistance = 1000,
-    crosshairTargeting = false, -- Use crosshair targeting instead of camera targeting
-    headOffset = 0.3 -- Offset for head targeting (0.0 = bottom, 0.5 = center, 1.0 = top)
+    maxDistance = 1000
 }
 
 -- Aimbot Variables
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
@@ -523,134 +520,27 @@ local function getClosestPlayer()
     return closestPlayer
 end
 
--- Mouse movement simulation function
-local function simulateMouseMovement(deltaX, deltaY)
-    -- Try multiple methods for mouse movement
-    
-    -- Method 1: mousemoverel (most common in exploit environments)
-    if mousemoverel then
-        local success = pcall(function()
-            mousemoverel(deltaX, deltaY)
-        end)
-        if success then
-            return true
-        end
-    end
-    
-    -- Method 2: setmousepos (direct position setting)
-    if setmousepos then
-        local success = pcall(function()
-            local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
-            local newMousePos = currentMousePos + Vector2.new(deltaX, deltaY)
-            setmousepos(newMousePos.X, newMousePos.Y)
-        end)
-        if success then
-            return true
-        end
-    end
-    
-    -- Method 3: VirtualInputManager (fallback)
-    local mouseDelta = Vector2.new(deltaX, deltaY)
-    local success = pcall(function()
-        VirtualInputManager:SendMouseMoveEvent(mouseDelta)
-    end)
-    
-    return success
-end
-
 local function aimAtTarget(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then return end
     
-    -- Find the correct target part with better detection
-    local targetPart = nil
-    local character = targetPlayer.Character
+    local targetPart = targetPlayer.Character:FindFirstChild(aimbotConfig.targetPart)
+    if not targetPart then return end
     
-    -- Try to find the specified target part with better detection
-    if aimbotConfig.targetPart == "Head" then
-        -- Try multiple head variations
-        targetPart = character:FindFirstChild("Head") or 
-                    character:FindFirstChild("HeadHB") or
-                    character:FindFirstChild("HeadHitbox")
-        
-        -- If still no head found, try to find it in accessories
-        if not targetPart then
-            for _, accessory in pairs(character:GetChildren()) do
-                if accessory:IsA("Accessory") and accessory:FindFirstChild("Handle") then
-                    local handle = accessory.Handle
-                    if handle.Name == "Head" or accessory.Name:lower():find("head") then
-                        targetPart = handle
-                        break
-                    end
-                end
-            end
-        end
-    elseif aimbotConfig.targetPart == "Torso" then
-        targetPart = character:FindFirstChild("Torso") or 
-                    character:FindFirstChild("UpperTorso") or
-                    character:FindFirstChild("Chest")
-    elseif aimbotConfig.targetPart == "HumanoidRootPart" then
-        targetPart = character:FindFirstChild("HumanoidRootPart") or
-                    character:FindFirstChild("RootPart")
-    end
+    local cameraPosition = Camera.CFrame.Position
+    local targetPosition = targetPart.Position
     
-    -- Fallback to HumanoidRootPart if target part not found
-    if not targetPart then
-        targetPart = character:FindFirstChild("HumanoidRootPart") or
-                    character:FindFirstChild("RootPart") or
-                    character:FindFirstChild("Torso") or
-                    character:FindFirstChild("UpperTorso")
-        if not targetPart then
-            return
-        end
-    end
+    -- Calculate the direction to the target
+    local direction = (targetPosition - cameraPosition).Unit
     
-    if aimbotConfig.crosshairTargeting then
-        -- Crosshair targeting mode (for unlock cursor)
-        local targetPosition = targetPart.Position
-        
-        -- Add offset for head targeting to aim at the center/top of the head
-        if aimbotConfig.targetPart == "Head" and targetPart.Size then
-            local offset = aimbotConfig.headOffset or 0.3
-            targetPosition = targetPosition + Vector3.new(0, targetPart.Size.Y * offset, 0)
-        end
-        
-        local screenPosition, onScreen = Camera:WorldToViewportPoint(targetPosition)
-        if not onScreen then return end
-        
-        -- Get current mouse position
-        local currentMousePos = Vector2.new(Mouse.X, Mouse.Y)
-        local targetScreenPos = Vector2.new(screenPosition.X, screenPosition.Y)
-        
-        -- Calculate mouse movement needed
-        local mouseMovement = targetScreenPos - currentMousePos
-        
-        -- Apply smoothing for more natural movement
-        local smoothedMovement = mouseMovement * aimbotConfig.smoothing
-        
-        -- Only move if distance is significant enough and movement is reasonable
-        if smoothedMovement.Magnitude > 0.5 and smoothedMovement.Magnitude < 100 then
-            -- Debug output with target part info
-            print("Targeting", aimbotConfig.targetPart, "(" .. targetPart.Name .. ") Moving mouse:", smoothedMovement.X, smoothedMovement.Y)
-            simulateMouseMovement(smoothedMovement.X, smoothedMovement.Y)
-        end
-    else
-        -- Camera targeting mode (for lock cursor)
-        local cameraPosition = Camera.CFrame.Position
-        local targetPosition = targetPart.Position
-        
-        -- Calculate the direction to the target
-        local direction = (targetPosition - cameraPosition).Unit
-        
-        -- Apply smoothing
-        local currentLookDirection = Camera.CFrame.LookVector
-        local smoothedDirection = currentLookDirection:Lerp(direction, aimbotConfig.smoothing)
-        
-        -- Create new CFrame
-        local newCFrame = CFrame.lookAt(cameraPosition, cameraPosition + smoothedDirection)
-        
-        -- Apply the new camera rotation
-        Camera.CFrame = newCFrame
-    end
+    -- Apply smoothing
+    local currentLookDirection = Camera.CFrame.LookVector
+    local smoothedDirection = currentLookDirection:Lerp(direction, aimbotConfig.smoothing)
+    
+    -- Create new CFrame
+    local newCFrame = CFrame.lookAt(cameraPosition, cameraPosition + smoothedDirection)
+    
+    -- Apply the new camera rotation
+    Camera.CFrame = newCFrame
 end
 
 -- Aimbot Main Loop
@@ -683,7 +573,7 @@ local function toggleAimbot()
     aimbotConfig.enabled = not aimbotConfig.enabled
     if aimbotConfig.enabled then
         startAimbot()
-        print("Aimbot: ON - Mode:", aimbotConfig.crosshairTargeting and "Crosshair Targeting" or "Camera Targeting")
+        print("Aimbot: ON")
     else
         stopAimbot()
         print("Aimbot: OFF")
@@ -761,27 +651,6 @@ CombatTab:CreateToggle({
     CurrentValue = true,
     Callback = function(Value)
         aimbotConfig.visibleCheck = Value
-    end,
-})
-
-CombatTab:CreateToggle({
-    Name = "Crosshair Targeting",
-    CurrentValue = false,
-    Callback = function(Value)
-        aimbotConfig.crosshairTargeting = Value
-        print("Crosshair Targeting:", Value and "ON" or "OFF")
-    end,
-})
-
-CombatTab:CreateSlider({
-    Name = "Head Offset",
-    Range = {0, 1},
-    Increment = 0.1,
-    Suffix = "Height",
-    CurrentValue = 0.3,
-    Callback = function(Value)
-        aimbotConfig.headOffset = Value
-        print("Head Offset changed to:", Value)
     end,
 })
 
