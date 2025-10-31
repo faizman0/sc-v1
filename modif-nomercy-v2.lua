@@ -12,7 +12,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
--- local Camera = workspace.CurrentCamera
+local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 local RequiredDistance, Typing, Running, Animation, ServiceConnections = 2000, false, false, nil, {}
@@ -36,10 +36,22 @@ Environment.FOVSettings = {
 	Amount = 90,
 	Color = Color3.fromRGB(255, 255, 255),
 	LockedColor = Color3.fromRGB(255, 70, 70),
-	Transparency = 0.5,
+	Transparency = 0.0,
 	Sides = 60,
 	Thickness = 1,
 	Filled = false
+}
+
+-- Double Damage Settings
+Environment.DoubleDamageSettings = {
+	Enabled = false,
+	Toggle = false,
+	TriggerKey = "Z", -- Default key untuk mengaktifkan double damage
+	-- Duration = 5, -- Durasi dalam detik
+	-- Cooldown = 30, 
+	Multiplier = 2, -- Pengali damage
+	Active = false,
+	-- OnCooldown = false
 }
 
 Environment.FOVCircle = Drawing.new("Circle")
@@ -73,6 +85,73 @@ local function GetClosestPlayer()
 		end
 	elseif (Vector2(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y) - Vector2(Camera:WorldToViewportPoint(Environment.Locked.Character[Environment.Settings.LockPart].Position).X, Camera:WorldToViewportPoint(Environment.Locked.Character[Environment.Settings.LockPart].Position).Y)).Magnitude > RequiredDistance then
 		CancelLock()
+	end
+end
+
+-- Double Damage Functions
+local function ApplyDoubleDamage()
+	if Environment.DoubleDamageSettings.OnCooldown then
+		warn("Double Damage is on cooldown!")
+		return
+	end
+	
+	Environment.DoubleDamageSettings.Active = true
+	Environment.DoubleDamageSettings.OnCooldown = true
+	
+	-- Simulasi efek visual atau suara
+	warn("DOUBLE DAMAGE ACTIVATED! Damage x" .. Environment.DoubleDamageSettings.Multiplier)
+	
+	-- Simulasi peningkatan damage (ini perlu disesuaikan dengan game spesifik)
+	local character = LocalPlayer.Character
+	if character then
+		-- Di sini Anda perlu menyesuaikan dengan mekanisme damage game
+		-- Contoh untuk game yang menggunakan Tool/Weapon:
+		for _, tool in ipairs(character:GetChildren()) do
+			if tool:IsA("Tool") then
+				-- Meningkatkan damage tool (sesuaikan dengan struktur game)
+				local originalDamage = tool:GetAttribute("OriginalDamage")
+				if not originalDamage then
+					originalDamage = tool:GetAttribute("Damage") or 10
+					tool:SetAttribute("OriginalDamage", originalDamage)
+				end
+				tool:SetAttribute("Damage", originalDamage * Environment.DoubleDamageSettings.Multiplier)
+			end
+		end
+	end
+	
+	-- Timer untuk durasi double damage
+	delay(Environment.DoubleDamageSettings.Duration, function()
+		Environment.DoubleDamageSettings.Active = false
+		warn("Double Damage ended")
+		
+		-- Kembalikan damage ke normal
+		local character = LocalPlayer.Character
+		if character then
+			for _, tool in ipairs(character:GetChildren()) do
+				if tool:IsA("Tool") then
+					local originalDamage = tool:GetAttribute("OriginalDamage")
+					if originalDamage then
+						tool:SetAttribute("Damage", originalDamage)
+					end
+				end
+			end
+		end
+		
+		-- Cooldown timer
+		delay(Environment.DoubleDamageSettings.Cooldown - Environment.DoubleDamageSettings.Duration, function()
+			Environment.DoubleDamageSettings.OnCooldown = false
+			warn("Double Damage is ready!")
+		end)
+	end)
+end
+
+local function ToggleDoubleDamage()
+	if Environment.DoubleDamageSettings.Toggle then
+		if not Environment.DoubleDamageSettings.Active and not Environment.DoubleDamageSettings.OnCooldown then
+			ApplyDoubleDamage()
+		end
+	else
+		ApplyDoubleDamage()
 	end
 end
 
@@ -125,6 +204,7 @@ local function Load()
 
 	ServiceConnections.InputBeganConnection = UserInputService.InputBegan:Connect(function(Input)
 		if not Typing then
+			-- Aimbot Trigger
 			pcall(function()
 				if Input.KeyCode == Enum.KeyCode[Environment.Settings.TriggerKey] then
 					if Environment.Settings.Toggle then
@@ -149,6 +229,15 @@ local function Load()
 						end
 					else
 						Running = true
+					end
+				end
+			end)
+			
+			-- Double Damage Trigger
+			pcall(function()
+				if Input.KeyCode == Enum.KeyCode[Environment.DoubleDamageSettings.TriggerKey] then
+					if Environment.DoubleDamageSettings.Enabled then
+						ToggleDoubleDamage()
 					end
 				end
 			end)
@@ -187,6 +276,7 @@ function Environment.Functions:Exit()
 	getgenv().Aimbot = nil
 	
 	Load = nil; GetClosestPlayer = nil; CancelLock = nil
+	ApplyDoubleDamage = nil; ToggleDoubleDamage = nil
 end
 
 function Environment.Functions:Restart()
@@ -222,5 +312,46 @@ function Environment.Functions:ResetSettings()
 		Thickness = 1,
 		Filled = false
 	}
+	
+	Environment.DoubleDamageSettings = {
+		Enabled = false,
+		Toggle = false,
+		TriggerKey = "Z",
+		Duration = 5,
+		Cooldown = 30,
+		Multiplier = 2,
+		Active = false,
+		OnCooldown = false
+	}
 end
+
+-- Fungsi untuk mengatur double damage
+function Environment.Functions:SetDoubleDamageEnabled(state)
+	Environment.DoubleDamageSettings.Enabled = state
+end
+
+function Environment.Functions:SetDoubleDamageKey(key)
+	Environment.DoubleDamageSettings.TriggerKey = key
+end
+
+function Environment.Functions:SetDoubleDamageMultiplier(multiplier)
+	Environment.DoubleDamageSettings.Multiplier = multiplier
+end
+
+function Environment.Functions:SetDoubleDamageDuration(duration)
+	Environment.DoubleDamageSettings.Duration = duration
+end
+
+function Environment.Functions:SetDoubleDamageCooldown(cooldown)
+	Environment.DoubleDamageSettings.Cooldown = cooldown
+end
+
+function Environment.Functions:GetDoubleDamageStatus()
+	return {
+		Active = Environment.DoubleDamageSettings.Active,
+		OnCooldown = Environment.DoubleDamageSettings.OnCooldown,
+		TimeRemaining = Environment.DoubleDamageSettings.Cooldown
+	}
+end
+
 Load()

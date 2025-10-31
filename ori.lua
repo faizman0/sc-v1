@@ -12,7 +12,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
--- local Camera = workspace.CurrentCamera
+local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 local RequiredDistance, Typing, Running, Animation, ServiceConnections = 2000, false, false, nil, {}
@@ -36,7 +36,7 @@ Environment.FOVSettings = {
 	Amount = 90,
 	Color = Color3.fromRGB(255, 255, 255),
 	LockedColor = Color3.fromRGB(255, 70, 70),
-	Transparency = 0.5,
+	Transparency = 0.0,
 	Sides = 60,
 	Thickness = 1,
 	Filled = false
